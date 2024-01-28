@@ -23,11 +23,15 @@ extern uint16_t main_hw_mpuport;
 #include <sys/nearptr.h>
 #include <sys/exceptn.h>
 
-#define YMF_DEBUG 0
+#define YMF_DEBUG 1
+//#define YSBEMU_CONFIG_UTIL 1 define on make command line
 #if YMF_DEBUG
 #include "dpmi/dbgutil.h"
 #endif
 #define YMF_printf(...) do { printf("YMF: "); printf(__VA_ARGS__); } while (0)
+#if YSBEMU_CONFIG_UTIL
+#define DBG_Logi(...) do { printf(__VA_ARGS__); } while (0) // ysbemu
+#endif
 
 #ifdef SBEMU
 #define PCMBUFFERPAGESIZE      512
@@ -60,7 +64,11 @@ extern uint16_t main_hw_mpuport;
 
 inline int snd_BUG_ON (int _cond) { return _cond; }
 
+#if YSBEMU_CONFIG_UTIL
+#define YMF_ENABLE_PCM 0
+#else
 #define YMF_ENABLE_PCM 1
+#endif
 
 one_sndcard_info YMF_sndcard_info;
 #if YMF_ENABLE_PCM
@@ -446,6 +454,7 @@ static void snd_ymfpci_disable_dsp (struct ymf_card_s *card)
 #if YMF_DEBUG
 unsigned int ymf_int_cnt = 0;
 struct ymf_card_s *ymfdump_card = NULL;
+static int dumped = 0;
 
 void ymfdump ()
 {
@@ -481,6 +490,7 @@ void pcidump ()
 }
 #endif
 
+#if YMF_ENABLE_PCM
 static int snd_ymfpci_timer_start (struct mpxplay_audioout_info_s *aui);
 static int snd_ymfpci_timer_stop (struct mpxplay_audioout_info_s *aui);
 
@@ -548,6 +558,7 @@ static int YMF_IRQRoutine (mpxplay_audioout_info_s *aui)
   //  snd_mpu401_uart_interrupt(irq, card->rawmidi->private_data);
   return handled;
 }
+#endif
 
 static int
 install_firmware (struct ymf_card_s *card, uint32_t addr, uint32_t *src, uint32_t len)
@@ -954,7 +965,10 @@ static int YMF_adetect (struct mpxplay_audioout_info_s *aui)
   }
 #if YMF_DEBUG
   ymfdump_card = card;
-  pcidump();
+  if (!dumped) {
+    DBG_Logi("PCI configuration space:\n");
+    pcidump();
+  }
 #endif
 
 #if 0
@@ -978,6 +992,7 @@ static int YMF_adetect (struct mpxplay_audioout_info_s *aui)
   }
 #endif
 
+#if !YSBEMU_CONFIG_UTIL
   switch (card->pci_dev->device_type) {
   case 0x724:
   case 0x724F:
@@ -1116,6 +1131,7 @@ try_724:
     w = pcibios_ReadConfig_Word(card->pci_dev, c + PCI_PM_CTRL);
     YMF_printf("power state: %4.4X -> %4.4X\n", state, w & PCI_PM_CTRL_STATE_MASK);
   }
+#endif
 
   aui->card_pci_dev = card->pci_dev;
   aui->card_irq = card->irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
@@ -1124,6 +1140,10 @@ try_724:
   card->iobase = pds_dpmi_map_physical_memory(card->pci_iobase, 0x8000);
   if (!card->iobase)
     goto err_adetect;
+#if YMF_DEBUG
+  DBG_Logi("YMF registers before:\n");
+  ymfdump();
+#endif
   
   pcibios_enable_memmap_set_master_all(card->pci_dev);
   card->src441_used = -1;
@@ -1136,6 +1156,10 @@ try_724:
   //cmd = pcibios_ReadConfig_Word(card->pci_dev, PCIR_PCICMD);
   //YMF_printf("pci command word: %4.4X\n", cmd);
 
+#if YSBEMU_CONFIG_UTIL
+  YMF_printf("Yamaha DS-XG sound card %X IRQ %d\n",
+             card->pci_dev->device_type, card->irq);
+#else
   YMF_printf("Yamaha DS-XG sound card %X FM %X MPU %X IRQ %d\n",
              card->pci_dev->device_type, fmport, mpuport, card->irq);
   //YMF_printf("iobase: %8.8X -> %8.8X\n", card->pci_iobase, card->iobase);
@@ -1156,6 +1180,7 @@ try_724:
     snd_ymfpci_ac3_init(card);
     //YMF_printf("did ac3\n");
   }
+#endif
 #endif
 
   YMF_mixer_init(card);
@@ -1185,7 +1210,13 @@ try_724:
   snd_ymfpci_writel(card, YDSXGR_SECADCLOOPVOLL, 0x3fff3fff);
   snd_ymfpci_writel(card, YDSXGR_SECADCLOOPVOLR, 0x3fff3fff);
 #endif
-  
+
+#if YMF_DEBUG
+  DBG_Logi("YMF registers after:\n");
+  ymfdump();
+  dumped = 1;
+#endif
+
 #if YMF_ENABLE_PCM
   if (aui->card_handler == &YMFSB_sndcard_info)
     return 1;
@@ -1254,6 +1285,7 @@ static void snd_ymfpci_hw_stop (struct ymf_card_s *card)
   spin_unlock_irqrestore(&card->reg_lock, flags);
 }
 
+#if YMF_ENABLE_PCM
 static void YMF_start (struct mpxplay_audioout_info_s *aui)
 {
   struct ymf_card_s *card = aui->card_private_data;
@@ -1296,7 +1328,6 @@ static void YMF_stop (struct mpxplay_audioout_info_s *aui)
   snd_ymfpci_hw_stop(card);
 }
 
-#if YMF_ENABLE_PCM
 static int voice_alloc (struct ymf_card_s *card,
                         enum snd_ymfpci_voice_type type,
                         int pair,
@@ -1740,10 +1771,6 @@ static aucards_allmixerchan_s YMF_mixerset[] = {
  //&YMF_linein_vol,
  NULL
 };
-
-#if YMF_DEBUG
-static int dumped = 0;
-#endif
 
 static void YMF_writeMIXER (struct mpxplay_audioout_info_s *aui, unsigned long reg, unsigned long val)
 {

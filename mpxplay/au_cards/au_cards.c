@@ -81,6 +81,11 @@ extern one_sndcard_info NUL_sndcard_info;
 #endif
 
 static one_sndcard_info *all_sndcard_info[]={
+#if YSBEMU_CONFIG_UTIL
+#ifdef AU_CARDS_LINK_YMF
+ &YMF_sndcard_info,
+#endif
+#else
 #ifdef AU_CARDS_LINK_YMF
  &YMFSB_sndcard_info,
 #endif
@@ -138,6 +143,7 @@ static one_sndcard_info *all_sndcard_info[]={
  &TST_sndcard_info,
  &NUL_sndcard_info,
 #endif
+#endif // ysbemu
  NULL
 };
 

@@ -28,6 +28,11 @@ PROGNAME = "SBEMU";
 #define MAIN_SBEMU_VER "1.0 beta3"
 #endif
 
+#if YSBEMU_CONFIG_UTIL
+#undef MAIN_SBEMU_VER
+#define MAIN_SBEMU_VER "Yamaha DS-XG (YMF7xx) config version"
+#endif
+
 #define MAIN_TRAP_PIC_ONDEMAND 1
 #define MAIN_INSTALL_RM_ISR 1 //not needed. but to workaround some rm games' problem. need RAW_HOOk in dpmi_dj2.c
 #define MAIN_DOUBLE_OPL_VOLUME 1 //hack: double the amplitude of OPL PCM. should be 1 or 0
@@ -679,6 +684,10 @@ int main(int argc, char* argv[])
     if(MAIN_Options[OPT_TYPE].value != 6)
         MAIN_Options[OPT_HDMA].value = MAIN_Options[OPT_DMA].value; //16 bit transfer through 8 bit dma
 
+#if YSBEMU_CONFIG_UTIL
+    printf("YSBEMU CONFIGURATION UTILITY\n");
+#endif
+
     DPMI_Init();
 
     MAIN_QEMM_Present = TRUE;
@@ -719,12 +728,19 @@ int main(int argc, char* argv[])
 
     MAIN_SetBlasterEnv(MAIN_Options);
 
+#if YSBEMU_CONFIG_UTIL
+    MAIN_Options[OPT_SCLIST].value=1; // ysbemu
+    MAIN_Options[OPT_RM].value=0; // ysbemu
+    MAIN_Options[OPT_PM].value=0; // ysbemu
+#endif
     BOOL enablePM = MAIN_Options[OPT_PM].value;
     BOOL enableRM = MAIN_Options[OPT_RM].value;
     if(!enablePM && !enableRM)
     {
+#if !YSBEMU_CONFIG_UTIL
         MAIN_CPrintf(RED, "Both real mode & protected mode support are disabled, exiting.\r\n");
         return 1;
+#endif
     }
 
     if(MAIN_Options[OPT_SCLIST].value)
