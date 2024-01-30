@@ -6,7 +6,7 @@ YSBEMU_CONFIG_UTIL ?= 0
 
 VERSION ?= $(shell git describe --tags)
 
-INCLUDES := -I./mpxplay -I./sbemu
+INCLUDES := -I./mpxplay -I./sbemu -I./drivers/include
 DEFINES := -D__DOS__ -DSBEMU -DDEBUG=$(DEBUG) -DYSBEMU_CONFIG_UTIL=$(YSBEMU_CONFIG_UTIL) -DMAIN_SBEMU_VER=\"$(VERSION)\"
 CFLAGS := -fcommon -march=i386 -Os $(INCLUDES) $(DEFINES)
 LDFLAGS := -lstdc++ -lm
@@ -42,9 +42,23 @@ CARDS_SRC := mpxplay/au_cards/ac97_def.c \
 	     mpxplay/au_cards/sc_sbl24.c \
 	     mpxplay/au_cards/sc_sbliv.c \
 	     mpxplay/au_cards/sc_via82.c \
-		 mpxplay/au_cards/sc_sbxfi.c \
+		 mpxplay/au_cards/sc_ctxfi.c \
 		 mpxplay/au_cards/sc_null.c \
 		 mpxplay/au_cards/sc_ymf.c \
+
+CTXFI_SRC := drivers/ctxfi/ctsrc.c \
+             drivers/ctxfi/ctresource.c \
+             drivers/ctxfi/ctmixer.c \
+             drivers/ctxfi/ctimap.c \
+             drivers/ctxfi/ctamixer.c \
+             drivers/ctxfi/ctatc.c \
+             drivers/ctxfi/cttimer.c \
+             drivers/ctxfi/ctdaio.c \
+             drivers/ctxfi/ctpcm.c \
+             drivers/ctxfi/cthardware.c \
+             drivers/ctxfi/ctvmem.c \
+             drivers/ctxfi/cthw20k1.c \
+             drivers/ctxfi/cthw20k2.c \
 
 SBEMU_SRC := sbemu/dbopl.cpp \
 	     sbemu/opl3emu.cpp \
@@ -66,7 +80,7 @@ SBEMU_SRC := sbemu/dbopl.cpp \
 	     utility.c \
 	     hdpmipt.c \
 
-SRC := $(CARDS_SRC) $(SBEMU_SRC)
+SRC := $(CTXFI_SRC) $(CARDS_SRC) $(SBEMU_SRC)
 OBJS := $(patsubst %.cpp,output/%.o,$(patsubst %.c,output/%.o,$(SRC)))
 
 $(TARGET): $(OBJS)
