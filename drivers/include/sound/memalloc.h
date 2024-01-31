@@ -176,4 +176,25 @@ static inline void snd_dma_free_pages (struct snd_dma_buffer *dmab) {
   MDma_free_cardmem(dmab->private_data);
 }
 
+/* device-managed memory allocator */
+//struct snd_dma_buffer *snd_devm_alloc_dir_pages(struct device *dev, int type,
+//                                                enum dma_data_direction dir,
+//                                                size_t size);
+
+static inline struct snd_dma_buffer *
+snd_devm_alloc_pages(struct device *dev, int type, size_t size)
+{
+  //return snd_devm_alloc_dir_pages(dev, type, DMA_BIDIRECTIONAL, size);
+  int err;
+  struct snd_dma_buffer *dmab = kzalloc(sizeof(struct snd_dma_buffer), GFP_KERNEL);
+  if (dmab) {
+    err = snd_dma_alloc_pages(type, dev, size, dmab);
+    if (err) {
+      kfree(dmab);
+      return NULL;
+    }
+  }
+  return dmab;
+}
+
 #endif /* __SOUND_MEMALLOC_H */

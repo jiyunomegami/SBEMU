@@ -40,26 +40,26 @@ extern void snd_emu20k1_ac97_init (struct hw *hw);
 static int
 make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct ctxfi_card_s *card, struct snd_pcm_substream **substreamp)
 {
-  struct snd_pcm_substream *substream;
-  struct snd_pcm_runtime *runtime;
+  struct snd_pcm_substream *substream = NULL;
+  struct snd_pcm_runtime *runtime = NULL;
   int err;
 
   substream = kzalloc(sizeof(*substream), GFP_KERNEL);
   if (!substream) {
-    return -ENOMEM;
+    goto err;
   }
   substream->ops = &ct_pcm_playback_ops;
   substream->pcm = kzalloc(sizeof(struct snd_pcm), GFP_KERNEL);
   substream->pcm->device = FRONT;
   runtime = kzalloc(sizeof(struct snd_pcm_runtime), GFP_KERNEL);
   if (!runtime) {
-    return -ENOMEM;
+    goto err;
   }
   substream->runtime = runtime;
   substream->private_data = card->atc;
   runtime->dma_buffer_p = kzalloc(sizeof(struct snd_dma_buffer), GFP_KERNEL);
   if (!runtime->dma_buffer_p) {
-    return -ENOMEM;
+    goto err;
   }
 //#define PCMBUFFERPAGESIZE 512
 // size must be page aligned
@@ -76,7 +76,7 @@ make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct ctxfi_card_s
                             dmabuffsize,
                             runtime->dma_buffer_p);
   if (err) {
-    return -ENOMEM;
+    goto err;
   }
   aui->card_DMABUFF = runtime->dma_buffer_p->area;
   dmabuffsize = MDma_init_pcmoutbuf(aui, dmabuffsize, PCMBUFFERPAGESIZE, 0);
@@ -96,12 +96,18 @@ make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct ctxfi_card_s
   }
   //xfidbg("runtime: %8.8X\n", runtime);
   int periods = max(1, dmabuffsize / PCMBUFFERPAGESIZE);
+  runtime->periods = periods;
   runtime->period_size = (dmabuffsize / periods) >> 3;
   xfidbg("period: %u\n", runtime->period_size);
   aui->card_dmasize = aui->card_dma_buffer_size = dmabuffsize;
   aui->card_samples_per_int = runtime->period_size >> 2;
 
   return 0;
+ err:
+  if (runtime->dma_buffer_p) snd_dma_free_pages(runtime->dma_buffer_p);
+  if (runtime) kfree(runtime);
+  if (substream) kfree(substream);
+  return -1;
 }
 
 //-------------------------------------------------------------------------
@@ -174,8 +180,11 @@ static int CTXFI_adetect (struct mpxplay_audioout_info_s *aui)
   card->linux_pci_dev = pds_zalloc(sizeof(struct pci_dev));
   card->linux_pci_dev->pcibios_dev = card->pci_dev;
   card->linux_pci_dev->irq = card->irq;
+  card->linux_pci_dev->vendor = card->pci_dev->vendor_id;
+  card->linux_pci_dev->device = card->pci_dev->device_id;
   card->linux_pci_dev->subsystem_vendor = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_SSVID);
   card->linux_pci_dev->subsystem_device = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_SSID);
+  card->linux_pci_dev->revision = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_RID);
   xfidbg("atc %4.4X:%4.4X\n", card->linux_pci_dev->subsystem_vendor, card->linux_pci_dev->subsystem_device);
   err = ct_atc_create(card->linux_snd_card,
                       card->linux_pci_dev,

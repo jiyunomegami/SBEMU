@@ -25,6 +25,9 @@ typedef signed int __s32;
 typedef signed long long __s64;
 
 #define __iomem /*__iomem*/
+#define __user /*__user*/
+#define __init /*__init*/
+//#define __always_inline inline
 
 #define	EPERM		 1	/* Operation not permitted */
 #define	ENOENT		 2	/* No such file or directory */
@@ -61,6 +64,21 @@ typedef signed long long __s64;
 #define	EDOM		33	/* Math argument out of domain of func */
 #define	ERANGE		34	/* Math result not representable */
 
+// from uapi/asm-generic/errno.h
+#define EDEADLK         35      /* Resource deadlock would occur */
+#define ENAMETOOLONG    36      /* File name too long */
+#define ENOLCK          37      /* No record locks available */
+
+/*
+ * This error code is special: arch syscall entry code will return
+ * -ENOSYS if users try to call a syscall that doesn't exist.  To keep
+ * failures of syscalls that really do exist distinguishable from
+ * failures due to attempts to use a nonexistent syscall, syscall
+ * implementations should refrain from returning -ENOSYS.
+ */
+#define ENOSYS          38      /* Invalid system call number */
+
+
 extern void pds_memxch(char *,char *,unsigned int);
 extern void *pds_malloc(unsigned int bufsize);
 extern void *pds_zalloc(unsigned int bufsize);
@@ -68,10 +86,12 @@ extern void *pds_calloc(unsigned int nitems,unsigned int itemsize);
 extern void *pds_realloc(void *bufptr,unsigned int bufsize);
 extern void pds_free(void *bufptr);
 
+#define kmalloc(size,flags) pds_malloc(size)
 #define kcalloc(n,size,flags) pds_calloc(n,size)
 #define kzalloc(size,flags) pds_zalloc(size) /* zero */
 #define kfree(p) pds_free(p)
-
+#define vmalloc(size) pds_malloc(size)
+#define vfree(p) pds_free(p)
 
 #ifndef _LINUX_TYPES_H
 #define _LINUX_TYPES_H
@@ -137,10 +157,14 @@ typedef __u32 __bitwise __wsum;
 
 #ifndef __ASSEMBLY__
 
-#define DECLARE_BITMAP(name,bits) \
+#include "bitops.h"
+
+#define DECLARE_BITMAP(name,bits)               \
 	unsigned long name[BITS_TO_LONGS(bits)]
 
 typedef __u32 __kernel_dev_t;
+typedef unsigned long __kernel_ulong_t;
+typedef __kernel_ulong_t kernel_ulong_t;
 typedef long		__kernel_long_t;
 typedef __kernel_long_t	__kernel_off_t;
 

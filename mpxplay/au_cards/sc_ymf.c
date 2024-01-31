@@ -23,7 +23,7 @@ extern uint16_t main_hw_mpuport;
 #include <sys/nearptr.h>
 #include <sys/exceptn.h>
 
-#define YMF_DEBUG 1
+#define YMF_DEBUG 0
 //#define YSBEMU_CONFIG_UTIL 1 define on make command line
 #if YMF_DEBUG
 #include "dpmi/dbgutil.h"
@@ -62,7 +62,7 @@ extern uint16_t main_hw_mpuport;
 #define ENOMEM -3
 #endif
 
-inline int snd_BUG_ON (int _cond) { return _cond; }
+static inline int snd_BUG_ON (int _cond) { return _cond; }
 
 #if YSBEMU_CONFIG_UTIL
 #define YMF_ENABLE_PCM 0
@@ -550,6 +550,7 @@ static int YMF_IRQRoutine (mpxplay_audioout_info_s *aui)
         snd_ymfpci_timer_start(aui);
       }
     }
+    //snd_ymfpci_timer_start(aui);
   }
   snd_ymfpci_writew(card, YDSXGR_INTFLAG, status);
 #endif
@@ -1716,6 +1717,9 @@ static long YMF_getbufpos (struct mpxplay_audioout_info_s *aui)
 #if YMF_DEBUG
   if ((ymf_int_cnt % 500) == 0) {
     DBG_Logi("bp %u / %u\n", bufpos, aui->card_dmasize);
+  }
+  if (bufpos == aui->card_dmasize) {
+    DBG_Logi("getbufpos %u == dmasize\n", bufpos);
   }
 #endif
 

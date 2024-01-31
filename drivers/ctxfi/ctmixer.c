@@ -20,7 +20,6 @@
 //#include "sound/asoundef.h"
 #include "sound/pcm.h"
 #include "sound/tlv.h"
-#define DECLARE_TLV_DB_SCALE		SNDRV_CTL_TLVD_DECLARE_DB_SCALE
 
 enum CT_SUM_CTL {
 	SUM_IN_F,

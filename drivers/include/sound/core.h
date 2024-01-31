@@ -9,6 +9,9 @@
 
 #include "asoundef.h"
 
+static inline int snd_BUG_ON (int _cond) { return _cond; }
+#define snd_BUG() do { printk("snd_BUG at %s:%d\n", __FILE__, __LINE__); } while (0)
+
 /* PCI quirk list helper */
 struct snd_pci_quirk {
 	unsigned short subvendor;	/* PCI subvendor ID */
