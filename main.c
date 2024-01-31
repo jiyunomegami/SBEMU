@@ -74,6 +74,10 @@ static const char MAIN_ISR_DOSID_String[] = "Crazii  SBEMU   Sound Blaster emula
 static void MAIN_TSR_InstallationCheck();
 static void MAIN_TSR_Interrupt();
 
+void *main_hw_mpu_private_data = NULL;
+unsigned char (*main_hw_mpu_read)(void *private_data, unsigned int idx) = NULL;
+void (*main_hw_mpu_write)(void *private_data, unsigned int idx, unsigned char data) = NULL;
+
 uint16_t main_hw_fmport = 0;
 #define hw_fm_outb(reg,data) outp(main_hw_fmport+reg,data)
 #define hw_fm_inb(reg) inp(main_hw_fmport+reg)
@@ -197,6 +201,9 @@ static uint32_t MAIN_MPU_330(uint32_t port, uint32_t val, uint32_t out)
   }
 #endif
   if (out) {
+    if (main_hw_mpu_write) {
+      main_hw_mpu_write(main_hw_mpu_private_data, 0, (unsigned char)(val & 0xff));
+    }
     if (main_hw_mpuport) {
       hw_mpu_outb(0, (unsigned char)(val & 0xff));
     }
@@ -204,7 +211,9 @@ static uint32_t MAIN_MPU_330(uint32_t port, uint32_t val, uint32_t out)
     return 0;
   } else {
     uint8_t val, hwval;
-    if (main_hw_mpuport) {
+    if (main_hw_mpu_read) {
+      hwval = main_hw_mpu_read(main_hw_mpu_private_data, 0);
+    } else if (main_hw_mpuport) {
       hwval = hw_mpu_inb(0);
     }
     if (mpu_state == 1) {
@@ -237,6 +246,9 @@ static uint32_t MAIN_MPU_331(uint32_t port, uint32_t val, uint32_t out)
   }
 #endif
   if (out) {
+    if (main_hw_mpu_write) {
+      main_hw_mpu_write(main_hw_mpu_private_data, 1, (unsigned char)(val & 0xff));
+    }
     if (main_hw_mpuport) {
       hw_mpu_outb(1, (unsigned char)(val & 0xff));
     }
@@ -253,7 +265,10 @@ static uint32_t MAIN_MPU_331(uint32_t port, uint32_t val, uint32_t out)
     }
     return 0;
   }
-  if (main_hw_mpuport) {
+  if (main_hw_mpu_read) {
+    uint8_t hwval = main_hw_mpu_read(main_hw_mpu_private_data, 1);
+    return hwval;
+  } else if (main_hw_mpuport) {
     uint8_t hwval = hw_mpu_inb(1);
     return hwval;
   }
@@ -837,7 +852,7 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        char *emutype = (main_hw_mpuport != 0) ? "hardware" : "emulation";
+        char *emutype = (main_hw_mpuport != 0 || main_hw_mpu_private_data != NULL) ? "hardware" : "emulation";
         printf("MPU-401 UART %s at address %x: ",
                emutype, MAIN_Options[OPT_MPUADDR].value);
         MAIN_Print_Enabled_Newline(true);
