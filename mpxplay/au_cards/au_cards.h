@@ -162,6 +162,7 @@ typedef struct au_cardconfig_v0154_s{
   #define AU_CARDS_LINK_CMI8X38 1
   //#define AU_CARDS_LINK_EMU20KX 1
   #define AU_CARDS_LINK_CTXFI 1
+  #define AU_CARDS_LINK_EMU10K1X 1
   #define AU_CARDS_LINK_ES1371  1
   #define AU_CARDS_LINK_ICH     1
   #define AU_CARDS_LINK_IHD     1
