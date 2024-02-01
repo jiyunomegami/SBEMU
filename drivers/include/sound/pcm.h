@@ -31,6 +31,9 @@
 //#include <linux/mm.h>
 #include "linux/bitops.h"
 //#include <linux/pm_qos.h>
+
+#define PCM_RUNTIME_CHECK(sub) snd_BUG_ON(!(sub) || !(sub)->runtime)
+
 /*
  * This struct defines a memory VMM memory area. There is one of these
  * per VM-area/task.  A VM area is any part of the process virtual memory
@@ -1121,8 +1124,67 @@ static inline int snd_pcm_hw_constraint_single(
 	return snd_pcm_hw_constraint_minmax(runtime, var, val, val);
 }
 
-int snd_pcm_format_signed(snd_pcm_format_t format);
-int snd_pcm_format_unsigned(snd_pcm_format_t format);
+//int snd_pcm_format_signed(snd_pcm_format_t format);
+//int snd_pcm_format_unsigned(snd_pcm_format_t format);
+#if 0
+static const struct pcm_format_data pcm_formats[(INT)SNDRV_PCM_FORMAT_LAST+1] = {
+        [SNDRV_PCM_FORMAT_S8] = {
+                .width = 8, .phys = 8, .le = -1, .signd = 1,
+                .silence = {},
+        },
+        [SNDRV_PCM_FORMAT_U8] = {
+                .width = 8, .phys = 8, .le = -1, .signd = 0,
+                .silence = { 0x80 },
+        },
+        [SNDRV_PCM_FORMAT_S16_LE] = {
+                .width = 16, .phys = 16, .le = 1, .signd = 1,
+                .silence = {},
+        },
+};
+#endif
+
+#define valid_format(x) 1
+
+/**
+ * snd_pcm_format_signed - Check the PCM format is signed linear
+ * @format: the format to check
+ *
+ * Return: 1 if the given PCM format is signed linear, 0 if unsigned
+ * linear, and a negative error code for non-linear formats.
+ */
+static inline
+int snd_pcm_format_signed(snd_pcm_format_t format)
+{
+	int val = -1;
+	if (!valid_format(format))
+		return -EINVAL;
+	//val = pcm_formats[(INT)format].signd;
+        if (format == SNDRV_PCM_FORMAT_S16_LE) val = 1;
+	if (val < 0)
+		return -EINVAL;
+	return val;
+}
+
+/**
+ * snd_pcm_format_width - return the bit-width of the format
+ * @format: the format to check
+ *
+ * Return: The bit-width of the format, or a negative error code
+ * if unknown format.
+ */
+static inline
+int snd_pcm_format_width(snd_pcm_format_t format)
+{
+	int val = 0;
+	if (!valid_format(format))
+		return -EINVAL;
+        if (format == SNDRV_PCM_FORMAT_S16_LE) val = 16;
+	//val = pcm_formats[(INT)format].width;
+	if (!val)
+		return -EINVAL;
+	return val;
+}
+
 int snd_pcm_format_linear(snd_pcm_format_t format);
 int snd_pcm_format_little_endian(snd_pcm_format_t format);
 int snd_pcm_format_big_endian(snd_pcm_format_t format);
@@ -1251,54 +1313,78 @@ int snd_pcm_lib_preallocate_pages(struct snd_pcm_substream *substream,
 int snd_pcm_lib_preallocate_pages_for_all(struct snd_pcm *pcm,
 					  int type, void *data,
 					  size_t size, size_t max);
-int snd_pcm_lib_malloc_pages(struct snd_pcm_substream *substream, size_t size);
-int snd_pcm_lib_free_pages(struct snd_pcm_substream *substream);
+//int snd_pcm_lib_malloc_pages(struct snd_pcm_substream *substream, size_t size);
+//int snd_pcm_lib_free_pages(struct snd_pcm_substream *substream);
 
-int _snd_pcm_lib_alloc_vmalloc_buffer(struct snd_pcm_substream *substream,
-				      size_t size, gfp_t gfp_flags);
-int snd_pcm_lib_free_vmalloc_buffer(struct snd_pcm_substream *substream);
-struct page *snd_pcm_lib_get_vmalloc_page(struct snd_pcm_substream *substream,
-					  unsigned long offset);
-/**
- * snd_pcm_lib_alloc_vmalloc_buffer - allocate virtual DMA buffer
- * @substream: the substream to allocate the buffer to
- * @size: the requested buffer size, in bytes
- *
- * Allocates the PCM substream buffer using vmalloc(), i.e., the memory is
- * contiguous in kernel virtual space, but not in physical memory.  Use this
- * if the buffer is accessed by kernel code but not by device DMA.
- *
- * Return: 1 if the buffer was changed, 0 if not changed, or a negative error
- * code.
- */
-static inline int snd_pcm_lib_alloc_vmalloc_buffer
-			(struct snd_pcm_substream *substream, size_t size)
+#include "linux/slab.h"
+#include "au_cards/dmairq.h"
+
+static inline int snd_pcm_lib_free_pages (struct snd_pcm_substream *substream)
 {
-  return -1; // XXX
-#if 0 // XXX
-	return _snd_pcm_lib_alloc_vmalloc_buffer(substream, size,
-						 GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO);
-#endif
+  struct snd_pcm_runtime *runtime;
+
+  if (PCM_RUNTIME_CHECK(substream))
+    return -EINVAL;
+  runtime = substream->runtime;
+  if (runtime->dma_area == NULL)
+    return 0;
+  if (runtime->dma_buffer_p != &substream->dma_buffer) {
+    struct snd_card *card = substream->pcm->card;
+
+    /* it's a newly allocated buffer.  release it now. */
+    //do_free_pages(card, runtime->dma_buffer_p);
+    MDma_free_cardmem(runtime->dma_buffer_p->private_data);
+    kfree(runtime->dma_buffer_p);
+  }
+  snd_pcm_set_runtime_buffer(substream, NULL);
+  return 0;
 }
 
-/**
- * snd_pcm_lib_alloc_vmalloc_32_buffer - allocate 32-bit-addressable buffer
- * @substream: the substream to allocate the buffer to
- * @size: the requested buffer size, in bytes
- *
- * This function works like snd_pcm_lib_alloc_vmalloc_buffer(), but uses
- * vmalloc_32(), i.e., the pages are allocated from 32-bit-addressable memory.
- *
- * Return: 1 if the buffer was changed, 0 if not changed, or a negative error
- * code.
- */
-static inline int snd_pcm_lib_alloc_vmalloc_32_buffer
-			(struct snd_pcm_substream *substream, size_t size)
+static inline int snd_pcm_lib_malloc_pages (struct snd_pcm_substream *substream, size_t size)
 {
-	return _snd_pcm_lib_alloc_vmalloc_buffer(substream, size,
-						 //GFP_KERNEL | GFP_DMA32 | __GFP_ZERO
-                                                 0 // XXX
-                                                 );
+  cardmem_t *dm;
+  struct snd_pcm_runtime *runtime;
+  struct snd_dma_buffer *dmab = NULL;
+
+  if (PCM_RUNTIME_CHECK(substream))
+    return -EINVAL;
+  runtime = substream->runtime;
+  if (runtime->dma_buffer_p) {
+    /* perphaps, we might free the large DMA memory region
+       to save some space here, but the actual solution
+       costs us less time */
+    if (runtime->dma_buffer_p->bytes >= size) {
+      runtime->dma_bytes = size;
+      return 0;       /* ok, do not change */
+    }
+    snd_pcm_lib_free_pages(substream);
+  }
+  if (substream->dma_buffer.area != NULL &&
+      substream->dma_buffer.bytes >= size) {
+    dmab = &substream->dma_buffer; /* use the pre-allocated buffer */
+  } else {
+    /* dma_max=0 means the fixed size preallocation */
+    if (substream->dma_buffer.area && !substream->dma_max)
+      return -ENOMEM;
+    dmab = kzalloc(sizeof(*dmab), GFP_KERNEL);
+    if (!dmab)
+      return -ENOMEM;
+    dmab->dev = substream->dma_buffer.dev;
+    dm = MDma_alloc_cardmem(size);
+    if (!dm) {
+      kfree(dmab);
+      return -ENOMEM;
+    }
+    dmab->private_data = dm;
+    dmab->area = dm->linearptr;
+    dmab->addr = (dma_addr_t)pds_cardmem_physicalptr(dm, dm->linearptr);
+    dmab->bytes = size;
+    dmab->dev.type = substream->dma_buffer.dev.type;
+    dmab->dev.dev = substream->dma_buffer.dev.dev;
+  }
+  snd_pcm_set_runtime_buffer(substream, dmab);
+  runtime->dma_bytes = size;
+  return 1;                       /* area was changed */
 }
 
 #define snd_pcm_get_dma_buf(substream) ((substream)->runtime->dma_buffer_p)
@@ -1411,8 +1497,6 @@ static inline void snd_pcm_limit_isa_dma_size(int dma, size_t *max)
 					 (IEC958_AES1_CON_PCM_CODER<<8)|\
 					 (IEC958_AES3_CON_FS_48000<<24))
 
-#define PCM_RUNTIME_CHECK(sub) snd_BUG_ON(!(sub) || !(sub)->runtime)
-
 const char *snd_pcm_format_name(snd_pcm_format_t format);
 
 /**
@@ -1512,6 +1596,15 @@ void snd_pcm_set_sync(struct snd_pcm_substream *substream)
         runtime->sync.id32[1] = -1;
         runtime->sync.id32[2] = -1;
         runtime->sync.id32[3] = -1;
+}
+
+static inline
+void snd_pcm_group_init(struct snd_pcm_group *group)
+{
+        spin_lock_init(&group->lock);
+        mutex_init(&group->mutex);
+        INIT_LIST_HEAD(&group->substreams);
+        //XXX refcount_set(&group->refs, 1);
 }
 
 #endif /* __SOUND_PCM_H */

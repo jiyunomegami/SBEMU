@@ -2,7 +2,6 @@
 #define SBEMU_LINUX_MUTEX_H
 
 struct mutex {
-  int wut;
 };
 
 #define mutex_init(x)
