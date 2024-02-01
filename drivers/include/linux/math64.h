@@ -1,9 +1,8 @@
 #ifndef _LINUX_MATH64_H
 #define _LINUX_MATH64_H
 
-#include "types.h"
+#include "linux/types.h"
 #include "dpmi/dbgutil.h"
-//#include <linux/types.h>
 //#include <asm/div64.h>
 
 #ifndef BITS_PER_LONG

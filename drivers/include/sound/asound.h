@@ -11,7 +11,7 @@
 #define __KERNEL__
 
 #if defined(__KERNEL__) || defined(__linux__)
-#include "../linux/types.h"
+#include "linux/types.h"
 //#include <asm/byteorder.h>
 #else
 #error

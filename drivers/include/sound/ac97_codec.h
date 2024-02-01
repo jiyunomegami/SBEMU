@@ -25,11 +25,11 @@
  *
  */
 
-//#include <linux/bitops.h>
+#include "linux/bitops.h"
 //#include <linux/device.h>
 //#include <linux/workqueue.h>
-#include "pcm.h"
-//#include <sound/control.h>
+#include "sound/pcm.h"
+#include "sound/control.h"
 //#include <sound/info.h>
 
 /* maximum number of devices on the AC97 bus */

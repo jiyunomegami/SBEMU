@@ -1,13 +1,13 @@
 #ifndef SBEMU_SOUND_CORE_H
 #define SBEMU_SOUND_CORE_H
 
-#include "../linux/spinlock.h"
-#include "../linux/time.h"
-#include "../linux/rwsem.h"
-#include "../linux/mutex.h"
-#include "../linux/pci.h"
+#include "linux/spinlock.h"
+#include "linux/time.h"
+#include "linux/rwsem.h"
+#include "linux/mutex.h"
+#include "linux/pci.h"
 
-#include "asoundef.h"
+#include "sound/asoundef.h"
 
 static inline int snd_BUG_ON (int _cond) { return _cond; }
 #define snd_BUG() do { printk("snd_BUG at %s:%d\n", __FILE__, __LINE__); } while (0)

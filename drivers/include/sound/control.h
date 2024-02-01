@@ -23,7 +23,7 @@
  */
 
 #include "linux/nospec.h"
-#include "asound.h"
+#include "sound/asound.h"
 
 #define snd_kcontrol_chip(kcontrol) ((kcontrol)->private_data)
 

@@ -7,7 +7,7 @@
  *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
  */
 
-#include "asound.h"
+#include "sound/asound.h"
 //#include <linux/interrupt.h>
 #include "linux/spinlock.h"
 #include "linux/wait.h"

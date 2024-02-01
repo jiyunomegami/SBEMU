@@ -61,6 +61,7 @@ struct snd_util_memblk *__snd_util_mem_alloc(struct snd_util_memhdr *hdr, int si
 //					      unsigned int units,
 //					      struct list_head *prev);
 
+#include "linux/slab.h"
 #include "linux/list.h"
 #define get_memblk(p)	list_entry(p, struct snd_util_memblk, list)
 

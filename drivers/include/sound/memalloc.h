@@ -153,6 +153,7 @@ int snd_dma_alloc_pages_fallback(int type, struct device *dev, size_t size,
 void *snd_malloc_pages(size_t size, gfp_t gfp_flags);
 void snd_free_pages(void *ptr, size_t size);
 
+#include "linux/slab.h"
 #include "au_cards/dmairq.h"
 
 static inline int snd_dma_alloc_pages (int type, struct device *device, size_t size,

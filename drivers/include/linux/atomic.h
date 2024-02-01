@@ -1,7 +1,7 @@
 #ifndef _ASM_GENERIC_BITOPS_ATOMIC_H_
 #define _ASM_GENERIC_BITOPS_ATOMIC_H_
 
-#include "bits.h"
+#include "linux/bits.h"
 //#include <asm/types.h>
 //#include <linux/irqflags.h>
 

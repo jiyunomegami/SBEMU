@@ -3,11 +3,11 @@
 /*
  * Linux wait queue related types and methods
  */
-#include "list.h"
+#include "linux/list.h"
 #include <stddef.h>
-#include "spinlock.h"
-#include "atomic.h"
-#include "non-atomic.h"
+#include "linux/spinlock.h"
+#include "linux/atomic.h"
+#include "linux/non-atomic.h"
 //#include <asm/current.h>
 //#include <uapi/linux/wait.h>
 

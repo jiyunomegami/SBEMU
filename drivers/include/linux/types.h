@@ -29,70 +29,6 @@ typedef signed long long __s64;
 #define __init /*__init*/
 //#define __always_inline inline
 
-#define	EPERM		 1	/* Operation not permitted */
-#define	ENOENT		 2	/* No such file or directory */
-#define	ESRCH		 3	/* No such process */
-#define	EINTR		 4	/* Interrupted system call */
-#define	EIO		 5	/* I/O error */
-#define	ENXIO		 6	/* No such device or address */
-#define	E2BIG		 7	/* Argument list too long */
-#define	ENOEXEC		 8	/* Exec format error */
-#define	EBADF		 9	/* Bad file number */
-#define	ECHILD		10	/* No child processes */
-#define	EAGAIN		11	/* Try again */
-#define	ENOMEM		12	/* Out of memory */
-#define	EACCES		13	/* Permission denied */
-#define	EFAULT		14	/* Bad address */
-#define	ENOTBLK		15	/* Block device required */
-#define	EBUSY		16	/* Device or resource busy */
-#define	EEXIST		17	/* File exists */
-#define	EXDEV		18	/* Cross-device link */
-#define	ENODEV		19	/* No such device */
-#define	ENOTDIR		20	/* Not a directory */
-#define	EISDIR		21	/* Is a directory */
-#define	EINVAL		22	/* Invalid argument */
-#define	ENFILE		23	/* File table overflow */
-#define	EMFILE		24	/* Too many open files */
-#define	ENOTTY		25	/* Not a typewriter */
-#define	ETXTBSY		26	/* Text file busy */
-#define	EFBIG		27	/* File too large */
-#define	ENOSPC		28	/* No space left on device */
-#define	ESPIPE		29	/* Illegal seek */
-#define	EROFS		30	/* Read-only file system */
-#define	EMLINK		31	/* Too many links */
-#define	EPIPE		32	/* Broken pipe */
-#define	EDOM		33	/* Math argument out of domain of func */
-#define	ERANGE		34	/* Math result not representable */
-
-// from uapi/asm-generic/errno.h
-#define EDEADLK         35      /* Resource deadlock would occur */
-#define ENAMETOOLONG    36      /* File name too long */
-#define ENOLCK          37      /* No record locks available */
-
-/*
- * This error code is special: arch syscall entry code will return
- * -ENOSYS if users try to call a syscall that doesn't exist.  To keep
- * failures of syscalls that really do exist distinguishable from
- * failures due to attempts to use a nonexistent syscall, syscall
- * implementations should refrain from returning -ENOSYS.
- */
-#define ENOSYS          38      /* Invalid system call number */
-
-
-extern void pds_memxch(char *,char *,unsigned int);
-extern void *pds_malloc(unsigned int bufsize);
-extern void *pds_zalloc(unsigned int bufsize);
-extern void *pds_calloc(unsigned int nitems,unsigned int itemsize);
-extern void *pds_realloc(void *bufptr,unsigned int bufsize);
-extern void pds_free(void *bufptr);
-
-#define kmalloc(size,flags) pds_malloc(size)
-#define kcalloc(n,size,flags) pds_calloc(n,size)
-#define kzalloc(size,flags) pds_zalloc(size) /* zero */
-#define kfree(p) pds_free(p)
-#define vmalloc(size) pds_malloc(size)
-#define vfree(p) pds_free(p)
-
 #ifndef _LINUX_TYPES_H
 #define _LINUX_TYPES_H
 
@@ -110,7 +46,7 @@ extern void pds_free(void *bufptr);
 #endif /* __EXPORTED_HEADERS__ */
 #endif
 
-#include "posix_types.h"
+#include "linux/posix_types.h"
 
 
 /*
@@ -157,7 +93,7 @@ typedef __u32 __bitwise __wsum;
 
 #ifndef __ASSEMBLY__
 
-#include "bitops.h"
+#include "linux/bitops.h"
 
 #define DECLARE_BITMAP(name,bits)               \
 	unsigned long name[BITS_TO_LONGS(bits)]

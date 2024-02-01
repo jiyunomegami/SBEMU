@@ -3,8 +3,8 @@
 #define _LINUX_TIME_H
 
 #include <time.h>
-#include "types.h"
-#include "time_types.h"
+#include "linux/types.h"
+#include "linux/time_types.h"
 
 #ifndef _STRUCT_TIMESPEC
 #define _STRUCT_TIMESPEC

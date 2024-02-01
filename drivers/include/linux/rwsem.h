@@ -1,7 +1,7 @@
 #ifndef SBEMU_LINUX_RWSEM_H
 #define SBEMU_LINUX_RWSEM_H
 
-#include "atomic-long.h"
+#include "linux/atomic-long.h"
 
 typedef unsigned long rwlock_t;
 

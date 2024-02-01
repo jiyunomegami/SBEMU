@@ -1,9 +1,10 @@
 #ifndef SBEMU_LINUX_PCI_H
 #define SBEMU_LINUX_PCI_H
 
-#include "kernel.h"
-#include "pci_regs.h"
-#include "pci_ids.h"
+#include "linux/kernel.h"
+#include "linux/err.h"
+#include "linux/pci_regs.h"
+#include "linux/pci_ids.h"
 #include "au_cards/pcibios.h"
 
 struct device {

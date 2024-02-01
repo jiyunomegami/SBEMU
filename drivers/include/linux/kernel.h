@@ -2,7 +2,7 @@
 #define SBEMU_LINUX_KERNEL_H
 
 #include <stddef.h>
-#include "types.h"
+#include "linux/types.h"
 
 #ifndef NR_CPUS
 #define NR_CPUS 1

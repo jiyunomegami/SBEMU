@@ -6,12 +6,12 @@
 #ifndef _LINUX_WORKQUEUE_H
 #define _LINUX_WORKQUEUE_H
 
-#include "timer.h"
+#include "linux/timer.h"
 //#include <linux/linkage.h>
-#include "bitops.h"
+#include "linux/bitops.h"
 //#include <linux/lockdep.h>
 //#include <linux/threads.h>
-#include "atomic.h"
+#include "linux/atomic.h"
 //#include <linux/cpumask.h>
 //#include <linux/rcupdate.h>
 

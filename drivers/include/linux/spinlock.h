@@ -1,7 +1,7 @@
 #ifndef SBEMU_LINUX_SPINLOCK_H
 #define SBEMU_LINUX_SPINLOCK_H
 
-#include "kernel.h"
+#include "linux/kernel.h"
 
 typedef unsigned long spinlock_t;
 

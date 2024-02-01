@@ -23,15 +23,13 @@
  *
  */
 
-#include "asound.h"
-#include "../linux/wait.h"
-#include "memalloc.h"
-
-//#include <sound/memalloc.h>
+#include "sound/asound.h"
+#include "linux/wait.h"
+#include "sound/memalloc.h"
 //#include <sound/minors.h>
 //#include <linux/poll.h>
 //#include <linux/mm.h>
-//#include <linux/bitops.h>
+#include "linux/bitops.h"
 //#include <linux/pm_qos.h>
 /*
  * This struct defines a memory VMM memory area. There is one of these
@@ -1151,7 +1149,7 @@ int snd_pcm_format_set_silence(snd_pcm_format_t format, void *buf, unsigned int 
 
 void snd_pcm_set_ops(struct snd_pcm * pcm, int direction,
 		     const struct snd_pcm_ops *ops);
-void snd_pcm_set_sync(struct snd_pcm_substream *substream);
+//void snd_pcm_set_sync(struct snd_pcm_substream *substream);
 int snd_pcm_lib_ioctl(struct snd_pcm_substream *substream,
 		      unsigned int cmd, void *arg);                      
 int snd_pcm_update_state(struct snd_pcm_substream *substream,
@@ -1498,5 +1496,22 @@ static inline u64 pcm_format_to_bits(snd_pcm_format_t pcm_format)
 	dev_warn((pcm)->card->dev, fmt, ##args)
 #define pcm_dbg(pcm, fmt, args...) \
 	dev_dbg((pcm)->card->dev, fmt, ##args)
+
+/**
+ * snd_pcm_set_sync - set the PCM sync id
+ * @substream: the pcm substream
+ *
+ * Sets the PCM sync identifier for the card.
+ */
+static inline
+void snd_pcm_set_sync(struct snd_pcm_substream *substream)
+{
+        struct snd_pcm_runtime *runtime = substream->runtime;
+        
+        runtime->sync.id32[0] = substream->pcm->card->number;
+        runtime->sync.id32[1] = -1;
+        runtime->sync.id32[2] = -1;
+        runtime->sync.id32[3] = -1;
+}
 
 #endif /* __SOUND_PCM_H */

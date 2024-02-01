@@ -1,12 +1,12 @@
 #ifndef SBEMU_LINUX_LIST_H
 #define SBEMU_LINUX_LIST_H
 
-#include "types.h"
-#include "compiler.h"
+#include "linux/types.h"
+#include "linux/compiler.h"
 #include <stddef.h>
-#include "poison.h"
+#include "linux/poison.h"
 //#include <linux/const.h>
-#include "kernel.h"
+#include "linux/kernel.h"
 
 /*
  * Simple doubly linked list implementation.

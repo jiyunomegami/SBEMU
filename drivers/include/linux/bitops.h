@@ -2,7 +2,7 @@
 #define _LINUX_BITOPS_H
 
 //#include <asm/types.h>
-#include "bits.h"
+#include "linux/bits.h"
 
 #define BITS_TO_LONGS(nr)	DIV_ROUND_UP(nr, BITS_PER_BYTE * sizeof(long))
 
