@@ -961,9 +961,17 @@ static int snd_emu10k1x_create(struct snd_card *card,
 			       SPCS_GENERATIONSTATUS | 0x00001200 |
 			       0x00000000 | SPCS_EMPHASIS_NONE | SPCS_COPYRIGHT);
 
+#if 0
+        // Enabling S/PDIF will disable analog out... leave S/PDIF disabled
+        // enable spdif output
+        snd_emu10k1x_ptr_write(chip, SPDIF_SELECT, 0, 0x000);
+        snd_emu10k1x_ptr_write(chip, ROUTING, 0, 0x700);
+        snd_emu10k1x_gpio_write(chip, 0x1000);
+#else
 	snd_emu10k1x_ptr_write(chip, SPDIF_SELECT, 0, 0x700); // disable SPDIF
 	snd_emu10k1x_ptr_write(chip, ROUTING, 0, 0x1003F); // routing
 	snd_emu10k1x_gpio_write(chip, 0x1080); // analog mode
+#endif
 
 	linux_outl(HCFG_LOCKSOUNDCACHE|HCFG_AUDIOENABLE, chip->port+HCFG);
 
@@ -1566,12 +1574,6 @@ static void emu10k1x_ac97_init (struct snd_card *card)
   for (i = 0; ac97_initial_values[i].port != 0xffff; i++) {
     emu10k1x_ac97_write(card, (u8)ac97_initial_values[i].port, ac97_initial_values[i].value);
   }
-#if 0
-  emu10k1x_ac97_write(card, AC97_MASTER, 0x0404);
-  emu10k1x_ac97_write(card, AC97_PCM, 0x0404);
-  emu10k1x_ac97_write(card, AC97_HEADPHONE, 0x0404);
-  emu10k1x_ac97_write(card, AC97_EXTENDED_STATUS, AC97_EA_SPDIF);
-#endif
 }
 
 int snd_emu10k1x_probe (struct snd_card *card, struct pci_dev *pci)
