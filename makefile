@@ -44,6 +44,7 @@ CARDS_SRC := mpxplay/au_cards/ac97_def.c \
 	     mpxplay/au_cards/sc_via82.c \
 		 mpxplay/au_cards/sc_ctxfi.c \
 		 mpxplay/au_cards/sc_emu10k1x.c \
+		 mpxplay/au_cards/sc_trident.c \
 		 mpxplay/au_cards/sc_null.c \
 		 mpxplay/au_cards/sc_ymf.c \
 
@@ -62,6 +63,9 @@ CTXFI_SRC := drivers/ctxfi/ctsrc.c \
              drivers/ctxfi/cthw20k2.c \
 
 EMU10K1_SRC := drivers/emu10k1/emu10k1x.c \
+
+TRIDENT_SRC := drivers/trident/trident_main.c \
+               drivers/trident/trident_memory.c \
 
 SBEMU_SRC := sbemu/dbopl.cpp \
 	     sbemu/opl3emu.cpp \
@@ -83,7 +87,7 @@ SBEMU_SRC := sbemu/dbopl.cpp \
 	     utility.c \
 	     hdpmipt.c \
 
-SRC := $(CTXFI_SRC) $(EMU10K1_SRC) $(CARDS_SRC) $(SBEMU_SRC)
+SRC := $(CTXFI_SRC) $(EMU10K1_SRC) $(TRIDENT_SRC) $(CARDS_SRC) $(SBEMU_SRC)
 OBJS := $(patsubst %.cpp,output/%.o,$(patsubst %.c,output/%.o,$(SRC)))
 
 $(TARGET): $(OBJS)
