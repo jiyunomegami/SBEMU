@@ -3635,6 +3635,7 @@ static void trident_hw_fm_write (void *private_data, unsigned int idx, unsigned 
   linux_outb(data, TRID_REG(trident, 0x10 + idx));
 }
 
+extern uint16_t main_hw_mpuport;
 extern void *main_hw_mpu_private_data;
 extern unsigned char (*main_hw_mpu_read)(void *private_data, unsigned int idx);
 extern void (*main_hw_mpu_write)(void *private_data, unsigned int idx, unsigned char data);
@@ -3715,15 +3716,6 @@ int snd_trident_create(struct snd_card *card,
 	trident->synth.max_size = max_wavetable_size * 1024;
 	trident->irq = -1;
 
-	trident->midi_port = TRID_REG(trident, T4D_MPU401_BASE);
-        main_hw_mpu_private_data = trident;
-        main_hw_mpu_read = trident_hw_mpu_read;
-        main_hw_mpu_write = trident_hw_mpu_write;
-#if 0
-        main_hw_fm_private_data = trident;
-        main_hw_fm_read = trident_hw_fm_read;
-        main_hw_fm_write = trident_hw_fm_write;
-#endif
 	pci_set_master(pci);
 
 	if ((err = pci_request_regions(pci, "Trident Audio")) < 0) {
@@ -3732,6 +3724,8 @@ int snd_trident_create(struct snd_card *card,
 		return err;
 	}
 	trident->port = pci_resource_start(pci, 0);
+
+	trident->midi_port = TRID_REG(trident, T4D_MPU401_BASE);
 
 #if 0
 	if (request_irq(pci->irq, snd_trident_interrupt, IRQF_SHARED,
@@ -3801,10 +3795,24 @@ int snd_trident_create(struct snd_card *card,
 
 	snd_trident_enable_eso(trident);
 
+        main_hw_mpuport = trident->midi_port;
+        //printk("midi_port: %4.4X\n", main_hw_mpuport);
 #if 0
         // Legacy ports
 	pci_write_config_byte(pci, 0x44, 3 << 2); // Adlib at 0x38C
         main_hw_fmport = 0x38c;
+	pci_write_config_byte(pci, 0x44, 3 << 6); // MPU-401 at 0x300
+        main_hw_mpuport = 0x300;
+#endif
+#if 0
+        main_hw_mpu_private_data = trident;
+        main_hw_mpu_read = trident_hw_mpu_read;
+        main_hw_mpu_write = trident_hw_mpu_write;
+#endif
+#if 0
+        main_hw_fm_private_data = trident;
+        main_hw_fm_read = trident_hw_fm_read;
+        main_hw_fm_write = trident_hw_fm_write;
 #endif
 
 #if 0
@@ -3958,15 +3966,13 @@ irqreturn_t snd_trident_interrupt(int irq, void *dev_id)
 	      __skip2:
 		spin_unlock(&trident->reg_lock);
 	}
-#if 0 // XXX
 	if (audio_int & MPU401_IRQ) {
 		if (trident->rmidi) {
-			snd_mpu401_uart_interrupt(irq, trident->rmidi->private_data);
+                        //snd_mpu401_uart_interrupt(irq, trident->rmidi->private_data);
 		} else {
 			inb(TRID_REG(trident, T4D_MPUR0));
 		}
 	}
-#endif
 	// linux_outl((ST_TARGET_REACHED | MIXER_OVERFLOW | MIXER_UNDERFLOW), TRID_REG(trident, T4D_MISCINT));
 	return IRQ_HANDLED;
 }

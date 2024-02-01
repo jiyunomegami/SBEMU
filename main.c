@@ -74,6 +74,10 @@ static const char MAIN_ISR_DOSID_String[] = "Crazii  SBEMU   Sound Blaster emula
 static void MAIN_TSR_InstallationCheck();
 static void MAIN_TSR_Interrupt();
 
+void *main_hw_fm_private_data = NULL;
+unsigned char (*main_hw_fm_read)(void *private_data, unsigned int idx) = NULL;
+void (*main_hw_fm_write)(void *private_data, unsigned int idx, unsigned char data) = NULL;
+
 void *main_hw_mpu_private_data = NULL;
 unsigned char (*main_hw_mpu_read)(void *private_data, unsigned int idx) = NULL;
 void (*main_hw_mpu_write)(void *private_data, unsigned int idx, unsigned char data) = NULL;
@@ -88,6 +92,15 @@ uint16_t main_hw_mpuport = 0;
 
 static uint32_t MAIN_OPL3_388(uint32_t port, uint32_t val, uint32_t out)
 {
+  if (main_hw_fm_private_data || main_hw_fm_read || main_hw_fm_write) {
+    if (out) {
+      if (main_hw_fm_write)
+        main_hw_fm_write(main_hw_fm_private_data, 0, val & 0xff);
+      return val;
+    } else {
+      return main_hw_fm_read(main_hw_fm_private_data, 0);
+    }
+  }
   if (main_hw_fmport) {
     if (out) {
       hw_fm_outb(0, val & 0xff);
@@ -100,6 +113,15 @@ static uint32_t MAIN_OPL3_388(uint32_t port, uint32_t val, uint32_t out)
 }
 static uint32_t MAIN_OPL3_389(uint32_t port, uint32_t val, uint32_t out)
 {
+  if (main_hw_fm_private_data || main_hw_fm_read || main_hw_fm_write) {
+    if (out) {
+      if (main_hw_fm_write)
+        main_hw_fm_write(main_hw_fm_private_data, 1, val & 0xff);
+      return val;
+    } else {
+      return main_hw_fm_read(main_hw_fm_private_data, 1);
+    }
+  }
   if (main_hw_fmport) {
     if (out) {
       hw_fm_outb(1, val & 0xff);
@@ -112,6 +134,15 @@ static uint32_t MAIN_OPL3_389(uint32_t port, uint32_t val, uint32_t out)
 }
 static uint32_t MAIN_OPL3_38A(uint32_t port, uint32_t val, uint32_t out)
 {
+  if (main_hw_fm_private_data || main_hw_fm_read || main_hw_fm_write) {
+    if (out) {
+      if (main_hw_fm_write)
+        main_hw_fm_write(main_hw_fm_private_data, 2, val & 0xff);
+      return val;
+    } else {
+      return main_hw_fm_read(main_hw_fm_private_data, 2);
+    }
+  }
   if (main_hw_fmport) {
     if (out) {
       hw_fm_outb(2, val & 0xff);
@@ -124,6 +155,15 @@ static uint32_t MAIN_OPL3_38A(uint32_t port, uint32_t val, uint32_t out)
 }
 static uint32_t MAIN_OPL3_38B(uint32_t port, uint32_t val, uint32_t out)
 {
+  if (main_hw_fm_private_data || main_hw_fm_read || main_hw_fm_write) {
+    if (out) {
+      if (main_hw_fm_write)
+        main_hw_fm_write(main_hw_fm_private_data, 3, val & 0xff);
+      return val;
+    } else {
+      return main_hw_fm_read(main_hw_fm_private_data, 3);
+    }
+  }
   if (main_hw_fmport) {
     if (out) {
       hw_fm_outb(3, val & 0xff);
@@ -225,7 +265,7 @@ static uint32_t MAIN_MPU_330(uint32_t port, uint32_t val, uint32_t out)
     } else {
       val = 0;
     }
-    if (main_hw_mpuport) {
+    if (main_hw_mpuport || main_hw_mpu_read) {
       val = hwval;
     }
     return val;
