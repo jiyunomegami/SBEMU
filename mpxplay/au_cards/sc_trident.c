@@ -95,11 +95,51 @@ make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct trident_card
   if (err) {
     goto err;
   }
+  tridentdbg("DMA buffer: size %u physical address: %8.8X\n", dmabuffsize, runtime->dma_buffer_p->addr);
+  int retry_idx = 0, max_tries = 20;
+  struct snd_dma_buffer *dmabuffers[100];
+  if (runtime->dma_buffer_p->addr >= 0x40000000) {
+    dmabuffers[0] = runtime->dma_buffer_p;
+    runtime->dma_buffer_p = NULL;
+    for (retry_idx = 1; retry_idx < max_tries; retry_idx++) {
+      runtime->dma_buffer_p = kzalloc(sizeof(struct snd_dma_buffer), GFP_KERNEL);
+      if (!runtime->dma_buffer_p) {
+        goto retry_err;
+      }
+      err = snd_dma_alloc_pages(SNDRV_DMA_TYPE_DEV, 
+                                &card->linux_pci_dev->dev,
+                                dmabuffsize,
+                                runtime->dma_buffer_p);
+      if (err) {
+        goto retry_err;
+      }
+      tridentdbg("retrying DMA buffer physical address: %8.8X\n", runtime->dma_buffer_p->addr);
+      if (runtime->dma_buffer_p->addr >= 0x40000000) {
+        dmabuffers[retry_idx] = runtime->dma_buffer_p;
+        runtime->dma_buffer_p = NULL;
+      } else {
+        break;
+      }
+    }
+  }
+  while (retry_idx--) {
+    tridentdbg("freeing dma buffer index %i\n", retry_idx);
+    snd_dma_free_pages(dmabuffers[retry_idx]);
+  }
+  retry_idx = 0;
+  if (runtime->dma_buffer_p == NULL) {
+  retry_err:
+    while (retry_idx--) {
+      tridentdbg("freeing dma buffer index %i\n", retry_idx);
+      snd_dma_free_pages(dmabuffers[retry_idx]);
+    }
+    printf("Trident: Could not allocate DMA buffer with physical address below 0x40000000, try using HimemX2 or HimemX /MAX=32768\n");
+    goto err;
+  }
   aui->card_DMABUFF = runtime->dma_buffer_p->area;
   // works without this:
   //dmabuffsize = MDma_init_pcmoutbuf(aui, dmabuffsize, PCMBUFFERPAGESIZE, 0);
   dmabuffsize = MDma_init_pcmoutbuf(aui, dmabuffsize, PCMBUFFERPAGESIZE, 0);
-  tridentdbg("dmabuffsize: %u   buff: %8.8X\n", dmabuffsize, aui->card_DMABUFF);
   snd_pcm_set_runtime_buffer(substream, runtime->dma_buffer_p);
   runtime->buffer_size = dmabuffsize / 4; // size in samples
   runtime->channels = 2;
@@ -127,7 +167,7 @@ make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct trident_card
   if (err) {
     goto err;
   }
-  aui->card_DMABUFF = runtime->dma_buffer_p->area;
+  tridentdbg("DMA buffer: size %u physical address: %8.8X\n", dmabuffsize, runtime->dma_buffer_p->addr);
   
   return 0;
 
