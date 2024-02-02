@@ -78,6 +78,24 @@ cardmem_t *MDma_alloc_cardmem(unsigned int buffsize)
  return dm;
 }
 
+cardmem_t *MDma_alloc_cardmem_noexit(unsigned int buffsize)
+{
+ cardmem_t *dm;
+ dm=calloc(1,sizeof(cardmem_t));
+ if(!dm)
+  exit(MPXERROR_XMS_MEM);
+  #ifndef DJGPP
+ if(!pds_dpmi_dos_allocmem(dm,buffsize)){
+  #else
+  if(!pds_dpmi_xms_allocmem(dm,buffsize)){
+  #endif
+  free(dm);
+  return NULL;
+ }
+ memset(dm->linearptr,0,buffsize);
+ return dm;
+}
+
 void MDma_free_cardmem(cardmem_t *dm)
 {
  if(dm){

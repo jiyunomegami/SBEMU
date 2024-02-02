@@ -159,7 +159,7 @@ void snd_free_pages(void *ptr, size_t size);
 static inline int snd_dma_alloc_pages (int type, struct device *device, size_t size,
                                        struct snd_dma_buffer *dmab) {
   cardmem_t *dm;
-  dm = MDma_alloc_cardmem(size);
+  dm = MDma_alloc_cardmem_noexit(size);
   if (!dm) {
     return -ENOMEM;
   }
@@ -174,7 +174,10 @@ static inline int snd_dma_alloc_pages (int type, struct device *device, size_t s
 }
 
 static inline void snd_dma_free_pages (struct snd_dma_buffer *dmab) {
-  MDma_free_cardmem(dmab->private_data);
+  if (dmab && dmab->private_data) {
+    MDma_free_cardmem(dmab->private_data);
+    dmab->private_data = NULL;
+  }
 }
 
 /* device-managed memory allocator */
