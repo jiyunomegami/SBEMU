@@ -614,7 +614,7 @@ static int YMF_IRQRoutine (mpxplay_audioout_info_s *aui)
         DBG_Logi("setting NATIVEDACOUTVOL\n"); // YMF754
 #endif
         snd_ymfpci_writel(card, YDSXGR_NATIVEDACOUTVOL, 0x045e045e);
-        snd_ymfpci_writel(card, YDSXGR_BUF441OUTVOL, 0x3fff3fff);
+        snd_ymfpci_writel(card, YDSXGR_BUF441OUTVOL, 0x045e045e);
       } else {
         uint32_t pb = snd_ymfpci_readl(card, YDSXGR_PLAYCTRLBASE);
 #if 0
@@ -684,7 +684,7 @@ static void snd_ymfpci_download_image (struct ymf_card_s *card)
 
   if (install_firmware(card, 0x1000, dsp, dsp_size))
     YMF_printf("installed dsp FW\n");
-  
+
   switch (card->pci_dev->device_type) {
   case 0x724F:
   case 0x740C:
@@ -1012,7 +1012,7 @@ void YMF_mixer_init (struct ymf_card_s *card)
     snd_ymfpci_writel(card, reg, 0);
   if (!card->nopcm && !card->weird) {
     //snd_ymfpci_writel(card, YDSXGR_NATIVEDACOUTVOL, 0x3fff3fff);
-    snd_ymfpci_writel(card, YDSXGR_BUF441OUTVOL, 0x3fff3fff);
+    //snd_ymfpci_writel(card, YDSXGR_BUF441OUTVOL, 0x3fff3fff);
   }
   //snd_ymfpci_writel(card, YDSXGR_BUF441OUTVOL, 0x3fff3fff);
   snd_ymfpci_writel(card, YDSXGR_ZVOUTVOL, 0x3fff3fff);
@@ -1383,6 +1383,7 @@ static void YMF_start (struct mpxplay_audioout_info_s *aui)
   if (!card->weird) {
     //snd_ymfpci_writel(card, YDSXGR_NATIVEDACOUTVOL, 0x3fff3fff);
     snd_ymfpci_writel(card, YDSXGR_NATIVEDACOUTVOL, 0x045e045e);
+    snd_ymfpci_writel(card, YDSXGR_BUF441OUTVOL, 0x045e045e);
   }
 
   card->ctrl_playback[card->voices[VOICE_TO_USE].number + 1] = cpu_to_le32(card->voices[VOICE_TO_USE].bank_addr);
