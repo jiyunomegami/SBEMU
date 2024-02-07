@@ -1,8 +1,6 @@
-
-//reference: https://wiki.osdev.org/PIC
 #include <dos.h>
 #include "pic.h"
-
+//reference: https://wiki.osdev.org/PIC
 #include "untrapio.h"
 #define inp UntrappedIO_IN
 #define outp UntrappedIO_OUT
@@ -16,10 +14,10 @@
 
 #define PIC_READISR 0x0B    //read interrupte service register (current interrupting IRQ)
 
-#undef CLIS
-#undef STIL
-#define CLIS()
-#define STIL()
+//#undef CLIS
+//#undef STIL
+//#define CLIS()
+//#define STIL()
 
 void PIC_SendEOIWithIRQ(uint8_t irq)
 {

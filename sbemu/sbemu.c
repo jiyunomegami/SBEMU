@@ -325,7 +325,7 @@ void SBEMU_DSP_Write(uint16_t port, uint8_t value)
                 SBEMU_DSPCMD = SBEMU_DSPCMD_INVALID;
             }
             break;
-            case SBEMU_CMD_8BIT_DIRECT:
+            case SBEMU_CMD_8BIT_DIRECT: //unsupported
             {
                 SBEMU_DSPCMD = SBEMU_DSPCMD_DIRECT;
             }
