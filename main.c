@@ -39,6 +39,7 @@ extern int linux_pcimain ();
 #define MAIN_TRAP_PIC_ONDEMAND 1
 #define MAIN_INSTALL_RM_ISR 1 //not needed. but to workaround some rm games' problem. need RAW_HOOk in dpmi_dj2.c
 #define MAIN_DOUBLE_OPL_VOLUME 1 //hack: double the amplitude of OPL PCM. should be 1 or 0
+#define MAIN_ISR_CHAINED 1 //auto calls next handler AFTER current handler exits
 
 #define MAIN_TSR_INT 0x2D   //AMIS multiplex. TODO: 0x2F?
 #define MAIN_TSR_INTSTART_ID 0x01 //start id
@@ -47,8 +48,11 @@ mpxplay_audioout_info_s aui = {0};
 
 #define MAIN_PCM_SAMPLESIZE 16384
 
-static int16_t MAIN_OPLPCM[MAIN_PCM_SAMPLESIZE+256];
-static int16_t MAIN_PCM[MAIN_PCM_SAMPLESIZE+256];
+static int16_t MAIN_OPLPCM[MAIN_PCM_SAMPLESIZE];
+static int16_t MAIN_PCM[MAIN_PCM_SAMPLESIZE];
+static int16_t MAIN_PCMResample[MAIN_PCM_SAMPLESIZE];
+static int MAIN_LastSBRate = 0;
+static int16_t MAIN_LastResample[SBEMU_CHANNELS];
 
 static DPMI_ISR_HANDLE MAIN_IntHandlePM;
 static DPMI_ISR_HANDLE MAIN_IntHandleRM;
@@ -524,7 +528,11 @@ static void MAIN_InvokeIRQ(uint8_t irq) //generate virtual IRQ
         HDPMIPT_Install_IOPortTrap(0xA0, 0xA1, MAIN_VIRQ_IODT+2, 2, &MAIN_VIRQ_IOPT_PM2);
     }
     #endif
+
+    HDPMIPT_DisableIRQRouting(irq); //disable routing
     VIRQ_Invoke(irq, &MAIN_IntContext.regs, MAIN_IntContext.EFLAGS&CPU_VMFLAG);
+    HDPMIPT_EnableIRQRouting(irq); //restore routing
+
     #if MAIN_TRAP_PIC_ONDEMAND
     if(MAIN_Options[OPT_RM].value) QEMM_Uninstall_IOPortTrap(&MAIN_VIRQ_IOPT);
     if(MAIN_Options[OPT_PM].value)
@@ -598,8 +606,11 @@ update_serial_mpu_output()
 }
 
 static BOOL OPLRMInstalled, OPLPMInstalled, MPURMInstalled, MPUPMInstalled;
+static HDPMIPT_IRQRoutedHandle OldRoutedHandle = HDPMIPT_IRQRoutedHandle_Default;
 static void MAIN_Cleanup()
 {
+    if(OldRoutedHandle.valid)
+        HDPMIPT_InstallIRQRoutedHandlerH(aui.card_irq, &OldRoutedHandle);
     AU_stop(&aui);
     AU_close(&aui);
     if(OPLRMInstalled)
@@ -815,7 +826,7 @@ int main(int argc, char* argv[])
         return 1;
     atexit(&MAIN_Cleanup);
 
-    if(aui.card_irq > 15)
+    if(aui.card_irq > 31) //UEFI with CSM may have APIC enabled (16-31).
     {
         printf("Invalid Sound card IRQ: ");
         MAIN_CPrintf(RED, "%d", aui.card_irq);
@@ -838,14 +849,18 @@ int main(int argc, char* argv[])
     }
     if(aui.card_irq <= 0x07) //SBPCI/CMI use irq 5/7 to gain DOS compatility?
     {
-        printf("WARNING: Low IRQ %d used for sound card, higher IRQ number(8~15) is recommended.\nTrying to enable Level triggered mode.\n", aui.card_irq);
+        printf("WARNING: Low IRQ %d used for sound card, higher IRQ number(8~15) is recommended.\n", aui.card_irq);
         //TODO: do we need to do this? 
+        #if 0
+        printf("Trying to enable Level triggered mode...");
         if(aui.card_irq > 2) //don't use level triggering for legacy ISA IRQ (timer/kbd etc)
         {
-            uint16_t elcr = inpw(0x4D0); //edge level control reg
+            uint16_t elcr = ((uint16_t)inp(0x4D1)<<8) | (inp(0x4D0)); //edge level control reg
             elcr |= (1<<aui.card_irq);
             outpw(0x4D0, elcr);
+            printf("done.\n");
         }
+        #endif
     }
     pcibios_enable_interrupt(aui.card_pci_dev);
 
@@ -855,15 +870,15 @@ int main(int argc, char* argv[])
     printf("Protected mode support: ");
     MAIN_Print_Enabled_Newline(enablePM);
 
-    if(enableRM)
-    {
-        UntrappedIO_OUT_Handler = &QEMM_UntrappedIO_Write;
-        UntrappedIO_IN_Handler = &QEMM_UntrappedIO_Read;
-    }
-    else
+    if(enablePM) //prefer PM IO since there's no mode switch and thus more faster. previously QEEM IO was used to avoid bugs/crashes.
     {
         UntrappedIO_OUT_Handler = &HDPMIPT_UntrappedIO_Write;
         UntrappedIO_IN_Handler = &HDPMIPT_UntrappedIO_Read;
+    }
+    else
+    {
+        UntrappedIO_OUT_Handler = &QEMM_UntrappedIO_Write;
+        UntrappedIO_IN_Handler = &QEMM_UntrappedIO_Read;
     }
 
     if(MAIN_Options[OPT_OPL].value)
@@ -965,7 +980,7 @@ int main(int argc, char* argv[])
         if(r.h.al != 0) //find free multiplex number
             continue;
         MAIN_TSR_INT_FNO = i;
-        TSR_ISR = DPMI_InstallRealModeISR(MAIN_TSR_INT, MAIN_TSR_Interrupt, &MAIN_TSRREG, &MAIN_TSRIntHandle) == 0;
+        TSR_ISR = DPMI_InstallRealModeISR(MAIN_TSR_INT, MAIN_TSR_Interrupt, &MAIN_TSRREG, &MAIN_TSRIntHandle, FALSE) == 0;
         if(!TSR_ISR)
             break;
         MAIN_ISR_DOSID = DPMI_HighMalloc((sizeof(MAIN_ISR_DOSID_String)+15)>>4, TRUE);
@@ -987,22 +1002,18 @@ int main(int argc, char* argv[])
     if(MAIN_Options[OPT_OPL].value)
         OPL3EMU_Init(aui.freq_card); //aui.freq_card available after AU_setrate
 
-    BOOL PM_ISR = DPMI_InstallISR(PIC_IRQ2VEC(aui.card_irq), MAIN_InterruptPM, &MAIN_IntHandlePM) == 0;
-    //set default ACK, to skip recursion of DOS/4GW
-    {
-        DPMI_ISR_HANDLE h;
-        for(int i = 0; i < 15; ++i)
-        {
-            DPMI_GetISR(PIC_IRQ2VEC(i), &h);
-            HDPMIPT_InstallIRQACKHandler(i, h.old_cs, h.old_offset);
-        }
-    }
-    HDPMIPT_InstallIRQACKHandler(aui.card_irq, MAIN_IntHandlePM.wrapper_cs, MAIN_IntHandlePM.wrapper_offset);
+    BOOL PM_ISR = DPMI_InstallISR(PIC_IRQ2VEC(aui.card_irq), MAIN_InterruptPM, &MAIN_IntHandlePM, MAIN_ISR_CHAINED) == 0;
+
     #if MAIN_INSTALL_RM_ISR
-    BOOL RM_ISR = DPMI_InstallRealModeISR(PIC_IRQ2VEC(aui.card_irq), MAIN_InterruptRM, &MAIN_RMIntREG, &MAIN_IntHandleRM) == 0;
+    BOOL RM_ISR = DPMI_InstallRealModeISR(PIC_IRQ2VEC(aui.card_irq), MAIN_InterruptRM, &MAIN_RMIntREG, &MAIN_IntHandleRM, MAIN_ISR_CHAINED) == 0;
     #else
     BOOL RM_ISR = TRUE;
+    MAIN_IntHandleRM.wrapper_cs = MAIN_IntHandleRM.wrapper_offset = -1; //skip for HDPMIPT_InstallIRQRouteHandler
     #endif
+
+    HDPMIPT_GetIRQRoutedHandlerH(aui.card_irq, &OldRoutedHandle);
+    HDPMIPT_InstallIRQRoutedHandler(aui.card_irq, MAIN_IntHandlePM.wrapper_cs, MAIN_IntHandlePM.wrapper_offset,
+        MAIN_IntHandleRM.wrapper_cs, (uint16_t)MAIN_IntHandleRM.wrapper_offset);
     PIC_UnmaskIRQ(aui.card_irq);
 
     AU_prestart(&aui);
@@ -1055,69 +1066,91 @@ int main(int argc, char* argv[])
     return 1;
 }
 
+//with the modified fork of HDPMI, HDPMI will route PM interrupts to IVT.
+//IRQ routing path:
+//PM: IDT -> PM handlers after SBEMU -> SBEMU MAIN_InterruptPM(*) -> PM handlers befoe SBEMU -> IVT -> SBEMU MAIN_InterruptRM(*) -> DPMI entrance -> IVT handlers before DPMI installed
+//RM: IVT -> RM handlers before SBEMU -> SBEMU MAIN_InterruptRM(*) -> RM handlers after SBEMU -> DPMI entrance -> PM handlers after SBEMU -> SBEMU MAIN_InterruptPM(*) -> PM handlers befoe SBEMU -> IVT handlers before DPMI installed
+//(*) means SBEMU might early terminate the calling chain if sound irq is handled (when MAIN_ISR_CHAINED==0).
+//early terminating is OK because PCI irq are level triggered, IRQ signal will keep high (raised) unless the hardware IRQ is ACKed.
+
 static void MAIN_InterruptPM()
 {
-    if(MAIN_InINT&MAIN_ININT_PM) return;
+    const uint8_t irq = PIC_GetIRQ();
+    if(irq != aui.card_irq) //shared IRQ handled by other handlers(EOI sent) or new irq arrived but not for us
+        return;
+
+    //if(MAIN_InINT&MAIN_ININT_PM) return; //skip reentrance. go32 will do this so actually we don't need it
     //DBG_Log("INTPM %d\n", MAIN_InINT);
     MAIN_InINT |= MAIN_ININT_PM;
 
+    //note: we have full control of the calling chain, if the irq belongs to the sound card,
+    //we send EOI and skip calling the chain - it will be a little faster. if other devices raises irq at the same time,
+    //the interrupt handler will enterred again (not nested) so won't be a problem.
+    //also we send EOI on our own and terminate, this doesn't rely on the default implementation in IVT - some platform (i.e. VirtualBox)
+    //don't send EOI on default handler in IVT.
+    //
+    //it has one problem that if other drivers (shared IRQ) enables interrupts (because it needs wait or is time consuming)
+    //then because we're still in MAIN_InterruptPM, so MAIN_InterruptPM is never enterred agian (guarded by go32 or MAIN_ININT_PM), 
+    //so the newly coming irq will never be processed and the IRQ will flood the system (freeze)
+    //an alternative chained methods will EXIT MAIN_InterruptPM FIRST and calls next handler, which will avoid this case, see @MAIN_ISR_CHAINED
+    //but we need a hack if the default handler in IVT doesn't send EOI or masks the irq - this is done in the RM final wrapper, see @DPMI_RMISR_ChainedWrapper
+    
+    //MAIN_IntContext.EFLAGS |= (MAIN_InINT&MAIN_ININT_RM) ? (MAIN_IntContext.EFLAGS&CPU_VMFLAG) : 0;
     HDPMIPT_GetInterrupContext(&MAIN_IntContext);
-    if(!(MAIN_InINT&MAIN_ININT_RM) && aui.card_handler->irq_routine && aui.card_handler->irq_routine(&aui)) //check if the irq belong the sound card
+    if(/*!(MAIN_InINT&MAIN_ININT_RM) && */aui.card_handler->irq_routine && aui.card_handler->irq_routine(&aui)) //check if the irq belong the sound card
     {
         MAIN_Interrupt();
+        #if !MAIN_ISR_CHAINED
         PIC_SendEOIWithIRQ(aui.card_irq);
+        #endif
     }
+    #if !MAIN_ISR_CHAINED
     else
     {
-        if((MAIN_InINT&MAIN_ININT_RM) || (MAIN_IntContext.EFLAGS&CPU_VMFLAG))
+        if(/*(MAIN_InINT&MAIN_ININT_RM) || */(MAIN_IntContext.EFLAGS&CPU_VMFLAG))
             DPMI_CallOldISR(&MAIN_IntHandlePM);
         else
             DPMI_CallOldISRWithContext(&MAIN_IntHandlePM, &MAIN_IntContext.regs);
         PIC_UnmaskIRQ(aui.card_irq);
-        //DBG_Log("INTPME %d\n", MAIN_InINT);
     }
+    #endif
+    //DBG_Log("INTPME %d\n", MAIN_InINT);
     MAIN_InINT &= ~MAIN_ININT_PM;
 }
 
 static void MAIN_InterruptRM()
 {
-    if(MAIN_InINT&MAIN_ININT_RM) return;
+    const uint8_t irq = PIC_GetIRQ();
+    if(irq != aui.card_irq) //shared IRQ handled by other handlers(EOI sent) or new irq arrived but not for us
+        return;
+    
+    //if(MAIN_InINT&MAIN_ININT_RM) return; //skip reentrance. go32 will do this so actually we don't need it
     //DBG_Log("INTRM %d\n", MAIN_InINT);
     MAIN_InINT |= MAIN_ININT_RM;
     
-    if(!(MAIN_InINT&MAIN_ININT_PM) && aui.card_handler->irq_routine && aui.card_handler->irq_routine(&aui)) //check if the irq belong the sound card
+    if(/*!(MAIN_InINT&MAIN_ININT_PM) && */aui.card_handler->irq_routine && aui.card_handler->irq_routine(&aui)) //check if the irq belong the sound card
     {
         MAIN_IntContext.regs = MAIN_RMIntREG;
         MAIN_IntContext.EFLAGS = MAIN_RMIntREG.w.flags | CPU_VMFLAG;
         MAIN_Interrupt();
+        #if !MAIN_ISR_CHAINED
         PIC_SendEOIWithIRQ(aui.card_irq);
+        #endif
     }
+    #if !MAIN_ISR_CHAINED
     else
     {
         DPMI_REG r = MAIN_RMIntREG; //don't modify MAIN_RMIntREG on hardware interrupt
         DPMI_CallRealModeOldISR(&MAIN_IntHandleRM, &r);
         PIC_UnmaskIRQ(aui.card_irq);
-        //DBG_Log("INTRME %d\n", MAIN_InINT);
     }
+    #endif
+    //DBG_Log("INTRME %d\n", MAIN_InINT);
     MAIN_InINT &= ~MAIN_ININT_RM;
 }
 
 static void MAIN_Interrupt()
 {
-    #if 0
-    aui.card_outbytes = aui.card_dmasize;
-    int space = AU_cardbuf_space(&aui)+2048;
-    //_LOG("int space: %d\n", space);
-    int samples = space / sizeof(int16_t) / 2 * 2;
-    //int samples = 22050/18*2;
-    _LOG("samples: %d %d\n", 22050/18*2, space/4*2);
-    static int cur = 0;
-    aui.samplenum = min(samples, TEST_SampleLen-cur);
-    aui.pcm_sample = TEST_Sample + cur;
-    //_LOG("cur: %d %d\n",cur,aui.samplenum);
-    cur += aui.samplenum;
-    cur -= AU_writedata(&aui);
-    #else
     if(!(aui.card_infobits&AUINFOS_CARDINFOBIT_PLAYING))
         return;
         
@@ -1165,7 +1198,7 @@ static void MAIN_Interrupt()
     }
 
     aui.card_outbytes = aui.card_dmasize;
-    int samples = AU_cardbuf_space(&aui) / sizeof(int16_t) / 2; //16 bit, 2 channels
+    int samples = AU_cardbuf_space(&aui) / sizeof(int16_t) / SBEMU_CHANNELS; //16 bit, 2 channels
     //_LOG("samples:%d\n",samples);
     if(samples == 0)
         return;
@@ -1173,6 +1206,7 @@ static void MAIN_Interrupt()
     BOOL digital = SBEMU_HasStarted();
     int dma = (SBEMU_GetBits() <= 8 || MAIN_Options[OPT_TYPE].value < 6) ? SBEMU_GetDMA() : SBEMU_GetHDMA();
     int32_t DMA_Count = VDMA_GetCounter(dma); //count in bytes
+    if(!digital) MAIN_LastSBRate = 0;
     if(digital)//&& DMA_Count != 0x10000) //-1(0xFFFF)+1=0
     {
         uint32_t DMA_Addr = VDMA_GetAddress(dma);
@@ -1180,6 +1214,11 @@ static void MAIN_Interrupt()
         uint32_t SB_Bytes = SBEMU_GetSampleBytes();
         uint32_t SB_Pos = SBEMU_GetPos();
         uint32_t SB_Rate = SBEMU_GetSampleRate();
+        if(MAIN_LastSBRate != SB_Rate)
+        {
+            for(int i = 0; i < SBEMU_CHANNELS; ++i) MAIN_LastResample[i] = 0;
+            MAIN_LastSBRate = SB_Rate;
+        }
         int samplesize = max(1, SBEMU_GetBits()/8); //sample size in bytes 1 for 8bit. 2 for 16bit
         int channels = SBEMU_GetChannels();
         _LOG("sample rate: %d %d\n", SB_Rate, aui.freq_card);
@@ -1187,7 +1226,8 @@ static void MAIN_Interrupt()
         //_LOG("DMA index: %x\n", DMA_Index);
         //_LOG("digital start\n");
         int pos = 0;
-        do {
+        do
+        {
             if(MAIN_DMA_MappedAddr != 0
              && !(DMA_Addr >= MAIN_DMA_Addr && DMA_Addr+DMA_Index+DMA_Count <= MAIN_DMA_Addr+MAIN_DMA_Size))
             {
@@ -1206,7 +1246,7 @@ static void MAIN_Interrupt()
             int count = samples-pos;
             BOOL resample = TRUE; //don't resample if sample rates are close
             if(SB_Rate < aui.freq_card-50)
-                count = max(1, count*SB_Rate/aui.freq_card);
+                count = max(min(2,count), count*SB_Rate/aui.freq_card); //need at least 2 for interpolation
             else if(SB_Rate > aui.freq_card+50)
                 count = count*SB_Rate/aui.freq_card;
             else
@@ -1218,16 +1258,26 @@ static void MAIN_Interrupt()
             _LOG("samples:%d %d %d, %d %d, %d %d\n", samples, pos+count, count, DMA_Count, DMA_Index, SB_Bytes, SB_Pos);
             int bytes = count * samplesize * channels;
 
-            if(MAIN_DMA_MappedAddr == 0) //map failed?
-                memset(MAIN_PCM+pos*2, 0, bytes);
-            else
-                DPMI_CopyLinear(DPMI_PTR2L(MAIN_PCM+pos*2), MAIN_DMA_MappedAddr+(DMA_Addr-MAIN_DMA_Addr)+DMA_Index, bytes);
-            if(SBEMU_GetBits()<8) //ADPCM  8bit
-                count = SBEMU_DecodeADPCM((uint8_t*)(MAIN_PCM+pos*2), bytes);
-            if(samplesize != 2)
-                cv_bits_n_to_m(MAIN_PCM+pos*2, count*channels, samplesize, 2);
-            if(resample/*SB_Rate != aui.freq_card*/)
-                count = mixer_speed_lq(MAIN_PCM+pos*2, count*channels, channels, SB_Rate, aui.freq_card)/channels;
+            {
+                int16_t* pcm = resample ? MAIN_PCMResample+channels : MAIN_PCM + pos*2;
+                if(MAIN_DMA_MappedAddr == 0) //map failed?
+                    memset(pcm, 0, bytes);
+                else
+                    DPMI_CopyLinear(DPMI_PTR2L(pcm), MAIN_DMA_MappedAddr+(DMA_Addr-MAIN_DMA_Addr)+DMA_Index, bytes);
+                if(SBEMU_GetBits()<8) //ADPCM  8bit
+                    count = SBEMU_DecodeADPCM((uint8_t*)(pcm), bytes);
+                if(samplesize != 2)
+                    cv_bits_n_to_m(pcm, count*channels, samplesize, 2);
+                if(resample/*SB_Rate != aui.freq_card*/)
+                {
+                    for(int i = 0; i < channels; ++i)
+                    {
+                        MAIN_PCMResample[i] = MAIN_LastResample[i]; //put last sample at beginning for interpolation
+                        MAIN_LastResample[i] = *(pcm + (count-1)*channels + i); //record last sample
+                    }
+                    count = mixer_speed_lq(MAIN_PCM+pos*2, MAIN_PCM_SAMPLESIZE-pos*2, MAIN_PCMResample, count*channels, channels, SB_Rate, aui.freq_card)/channels;
+                }
+            }
             if(channels == 1) //should be the last step
                 cv_channels_1_to_n(MAIN_PCM+pos*2, count, 2, 2);
             pos += count;
@@ -1273,7 +1323,7 @@ static void MAIN_Interrupt()
     {
         samples = SBEMU_GetDirectCount();
         _LOG("direct out:%d %d\n",samples,aui.card_samples_per_int);
-        memcpy(MAIN_PCM, SBEMU_GetDirectPCM8(), samples);
+        memcpy(MAIN_PCMResample, SBEMU_GetDirectPCM8(), samples);
         SBEMU_ResetDirect();
 #if 0   //fix noise for some games - SBEMU-X NOTE: unlikely to be needed
         int zeros = TRUE;
@@ -1289,10 +1339,10 @@ static void MAIN_Interrupt()
         }
 #endif
         //for(int i = 0; i < samples; ++i) _LOG("%d ",((uint8_t*)MAIN_PCM)[i]); _LOG("\n");
-        cv_bits_n_to_m(MAIN_PCM, samples, 1, 2);
+        cv_bits_n_to_m(MAIN_PCMResample, samples, 1, 2);
         //for(int i = 0; i < samples; ++i) _LOG("%d ",MAIN_PCM[i]); _LOG("\n");
         // the actual sample rate is derived from current count of samples in direct output buffer
-        samples = mixer_speed_lq(MAIN_PCM, samples, 1, (samples * aui.freq_card) / aui.card_samples_per_int, aui.freq_card);
+        samples = mixer_speed_lq(MAIN_PCM, MAIN_PCM_SAMPLESIZE, MAIN_PCMResample, samples, 1, (samples * aui.freq_card) / aui.card_samples_per_int, aui.freq_card);
         //for(int i = 0; i < samples; ++i) _LOG("%d ",MAIN_PCM[i]); _LOG("\n");
         cv_channels_1_to_n(MAIN_PCM, samples, 2, 2);
         digital = TRUE;
@@ -1340,7 +1390,6 @@ static void MAIN_Interrupt()
     AU_writedata(&aui);
 
     //_LOG("MAIN INT END\n");
-    #endif
 }
 
 void MAIN_TSR_InstallationCheck()

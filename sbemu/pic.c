@@ -1,6 +1,8 @@
+
+//reference: https://wiki.osdev.org/PIC
 #include <dos.h>
 #include "pic.h"
-//reference: https://wiki.osdev.org/PIC
+
 #include "untrapio.h"
 #define inp UntrappedIO_IN
 #define outp UntrappedIO_OUT
@@ -14,13 +16,17 @@
 
 #define PIC_READISR 0x0B    //read interrupte service register (current interrupting IRQ)
 
-//#undef CLIS
-//#undef STIL
-//#define CLIS()
-//#define STIL()
+#undef CLIS
+#undef STIL
+#define CLIS()
+#define STIL()
 
 void PIC_SendEOIWithIRQ(uint8_t irq)
 {
+    if(PIC_GetIRQ() != irq) //not gonna happen but just incase that SMM handles a shared interrupt and we don't need send it again
+        return;             //or it's possbile that SMM only process the interrupt without sending EOI, leaving it to IVT
+                            //just make it safe
+
     if(irq == 7 || irq == 15) //check spurious irq
         return PIC_SendEOI();
     CLIS();
@@ -56,7 +62,8 @@ uint8_t PIC_GetIRQ(void)
     if(mask&0x4)
     {
         outp(PIC_PORT2, PIC_READISR);
-        mask = (uint16_t)(inp(PIC_PORT2)<<8);
+        mask &= ~0x04;
+        mask = (uint16_t)(inp(PIC_PORT2)<<8) | mask;
     }
     STIL();
     if(mask == 0)
@@ -104,7 +111,7 @@ void PIC_MaskIRQ(uint8_t irq)
 void PIC_UnmaskIRQ(uint8_t irq)
 {
     uint16_t port = PIC_DATA1;
-    CLIS();    
+    CLIS();
     if(irq >= 8)
     {
         uint8_t master = inp(port);
