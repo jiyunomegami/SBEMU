@@ -5,14 +5,12 @@
 
 #ifdef AU_CARDS_LINK_CTXFI
 
-#define XFI_DEBUG 0
+#define CTXFI_DEBUG 0
 
-#if XFI_DEBUG
-#define xfidbg(...) DBG_Logi(__VA_ARGS__)
-#define xfidbgl() xfidbg("%s:%d\n", __FILE__, __LINE__)
+#if CTXFI_DEBUG
+#define ctxfidbg(...) do { DBG_Logi("CTXFI: "); DBG_Logi(__VA_ARGS__); } while (0)
 #else
-#define xfidbg(...)
-#define xfidbgl()
+#define ctxfidbg(...)
 #endif
 
 #include "dmairq.h"
@@ -35,7 +33,6 @@ extern int ct_pcm_playback_open (struct snd_pcm_substream *substream);
 extern int ct_pcm_playback_prepare (struct snd_pcm_substream *substream);
 extern int ct_pcm_playback_trigger (struct snd_pcm_substream *substream, int cmd);
 extern struct snd_pcm_ops ct_pcm_playback_ops;
-extern void snd_emu20k1_ac97_init (struct hw *hw);
 
 static int
 make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct ctxfi_card_s *card, struct snd_pcm_substream **substreamp)
@@ -70,7 +67,7 @@ make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct ctxfi_card_s
   size_t dmabuffsize = 4096;
   //size_t dmabuffsize = aui->card_dmasize;
   dmabuffsize = MDma_get_max_pcmoutbufsize(aui, 0, PCMBUFFERPAGESIZE, 2, 0);
-  xfidbg("max dmabuffsize: %u\n", dmabuffsize);
+  ctxfidbg("max dmabuffsize: %u\n", dmabuffsize);
   err = snd_dma_alloc_pages(SNDRV_DMA_TYPE_DEV, 
                             &card->linux_pci_dev->dev,
                             dmabuffsize,
@@ -80,7 +77,7 @@ make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct ctxfi_card_s
   }
   aui->card_DMABUFF = runtime->dma_buffer_p->area;
   dmabuffsize = MDma_init_pcmoutbuf(aui, dmabuffsize, PCMBUFFERPAGESIZE, 0);
-  xfidbg("dmabuffsize: %u   buff: %8.8X\n", dmabuffsize, aui->card_DMABUFF);
+  ctxfidbg("dmabuffsize: %u   buff: %8.8X\n", dmabuffsize, aui->card_DMABUFF);
   snd_pcm_set_runtime_buffer(substream, runtime->dma_buffer_p);
   runtime->buffer_size = dmabuffsize;
   runtime->channels = 2;
@@ -89,16 +86,16 @@ make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct ctxfi_card_s
   runtime->rate = aui->freq_card;
   runtime->format = SNDRV_PCM_FORMAT_S16_LE;
   *substreamp = substream;
-  //xfidbg("dmabuff: %8.8X\n", aui->card_DMABUFF);
+  //ctxfidbg("dmabuff: %8.8X\n", aui->card_DMABUFF);
   err = ct_pcm_playback_open(substream);
   if (err) {
     return -ENOMEM;
   }
-  //xfidbg("runtime: %8.8X\n", runtime);
+  //ctxfidbg("runtime: %8.8X\n", runtime);
   int periods = max(1, dmabuffsize / PCMBUFFERPAGESIZE);
   runtime->periods = periods;
   runtime->period_size = (dmabuffsize / periods) >> 3;
-  xfidbg("period: %u\n", runtime->period_size);
+  ctxfidbg("period: %u\n", runtime->period_size);
   aui->card_dmasize = aui->card_dma_buffer_size = dmabuffsize;
   aui->card_samples_per_int = runtime->period_size >> 2;
 
@@ -150,7 +147,7 @@ static int CTXFI_adetect (struct mpxplay_audioout_info_s *aui)
   uint32_t iobase;
   int err;
 
-  xfidbg("adetect\n");
+  ctxfidbg("adetect\n");
 
   card = (struct ctxfi_card_s *)pds_zalloc(sizeof(struct ctxfi_card_s));
   if (!card)
@@ -185,7 +182,7 @@ static int CTXFI_adetect (struct mpxplay_audioout_info_s *aui)
   card->linux_pci_dev->subsystem_vendor = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_SSVID);
   card->linux_pci_dev->subsystem_device = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_SSID);
   card->linux_pci_dev->revision = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_RID);
-  xfidbg("atc %4.4X:%4.4X\n", card->linux_pci_dev->subsystem_vendor, card->linux_pci_dev->subsystem_device);
+  ctxfidbg("atc %4.4X:%4.4X\n", card->linux_pci_dev->subsystem_vendor, card->linux_pci_dev->subsystem_device);
   err = ct_atc_create(card->linux_snd_card,
                       card->linux_pci_dev,
                       reference_rate,
@@ -198,8 +195,7 @@ static int CTXFI_adetect (struct mpxplay_audioout_info_s *aui)
   aui->freq_card = 22050;
   err = make_snd_pcm_substream(aui, card, &card->pcm_substream);
   if (err) goto err_adetect;
-  xfidbg("CTXFI : Creative %s (%4.4X) IRQ %u\n", card->pci_dev->device_name, card->pci_dev->device_id, card->irq);
-  //snd_emu20kx_ac97_init(card->atc->hw);
+  ctxfidbg("CTXFI : Creative %s (%4.4X) IRQ %u\n", card->pci_dev->device_name, card->pci_dev->device_id, card->irq);
 
   return 1;
 
@@ -211,26 +207,32 @@ err_adetect:
 static void CTXFI_setrate (struct mpxplay_audioout_info_s *aui)
 {
   struct ctxfi_card_s *card = aui->card_private_data;
-  xfidbg("setrate\n");
+  ctxfidbg("setrate\n");
   //aui->freq_card = 22050;
+  if (aui->freq_card < 8000) {
+    aui->freq_card = 8000;
+  } else if (aui->freq_card > 192000) {
+    aui->freq_card = 192000;
+  }
+  aui->freq_card = 22050; // Force rate to 22050 for now
   ct_pcm_playback_prepare(card->pcm_substream);
 }
 
 static void CTXFI_start (struct mpxplay_audioout_info_s *aui)
 {
-  xfidbg("start\n");
+  ctxfidbg("start\n");
   struct ctxfi_card_s *card = aui->card_private_data;
   ct_pcm_playback_trigger(card->pcm_substream, SNDRV_PCM_TRIGGER_START);
 }
 
 static void CTXFI_stop (struct mpxplay_audioout_info_s *aui)
 {
-  xfidbg("stop\n");
+  ctxfidbg("stop\n");
   struct ctxfi_card_s *card = aui->card_private_data;
   ct_pcm_playback_trigger(card->pcm_substream, SNDRV_PCM_TRIGGER_STOP);
 }
 
-unsigned int xfi_int_cnt = 0;
+unsigned int ctxfi_int_cnt = 0;
 extern snd_pcm_uframes_t ct_pcm_playback_pointer(struct snd_pcm_substream *substream);
 
 static long CTXFI_getbufpos (struct mpxplay_audioout_info_s *aui)
@@ -238,11 +240,11 @@ static long CTXFI_getbufpos (struct mpxplay_audioout_info_s *aui)
   struct ctxfi_card_s *card = aui->card_private_data;
   unsigned long bufpos = ct_pcm_playback_pointer(card->pcm_substream);
   bufpos <<= 1;
-#if XFI_DEBUG > 1
-  if ((xfi_int_cnt % 9) == 0)
-    xfidbg("getbufpos %u / %u\n", bufpos, aui->card_dmasize);
+#if CTXFI_DEBUG > 1
+  if ((ctxfi_int_cnt % 9) == 0)
+    ctxfidbg("getbufpos %u / %u\n", bufpos, aui->card_dmasize);
   if (bufpos == aui->card_dmasize)
-    xfidbg("getbufpos %u == dmasize\n", bufpos);
+    ctxfidbg("getbufpos %u == dmasize\n", bufpos);
 #endif
   if (bufpos < aui->card_dmasize)
     aui->card_dma_lastgoodpos = bufpos;
@@ -278,13 +280,17 @@ static unsigned long CTXFI_readMIXER (struct mpxplay_audioout_info_s *aui, unsig
 extern irqreturn_t ct_20k1_interrupt(int irq, void *dev_id);
 extern irqreturn_t ct_20k2_interrupt(int irq, void *dev_id);
 
-  static int CTXFI_IRQRoutine (struct mpxplay_audioout_info_s *aui)
+static int CTXFI_IRQRoutine (struct mpxplay_audioout_info_s *aui)
 {
   struct ctxfi_card_s *card = aui->card_private_data;
+  irqreturn_t handled;
   if (card->atc->chip_type == ATC20K1)
-    return ct_20k1_interrupt(card->irq, card->atc->hw);
+    handled = ct_20k1_interrupt(card->irq, card->atc->hw);
   else
-    return ct_20k2_interrupt(card->irq, card->atc->hw);
+    handled = ct_20k2_interrupt(card->irq, card->atc->hw);
+  if (handled)
+    ctxfi_int_cnt++;
+  return handled;
 }
 
 one_sndcard_info CTXFI_sndcard_info = {

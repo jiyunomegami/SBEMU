@@ -8,11 +8,9 @@
 #define TRIDENT_DEBUG 0
 
 #if TRIDENT_DEBUG
-#define tridentdbg(...) DBG_Logi(__VA_ARGS__)
-#define tridentdbgl() tridentdbg("%s:%d\n", __FILE__, __LINE__)
+#define tridentdbg(...) do { DBG_Logi("TRIDENT: "); DBG_Logi(__VA_ARGS__); } while (0)
 #else
 #define tridentdbg(...)
-#define tridentdbgl()
 #endif
 
 #include "dmairq.h"
@@ -214,8 +212,6 @@ static void TRIDENT_card_info (struct mpxplay_audioout_info_s *aui)
   pds_textdisplay_printf(sout);
 }
 
-extern void main_force_rate (int rate);
-
 static int TRIDENT_adetect (struct mpxplay_audioout_info_s *aui)
 {
   struct trident_card_s *card;
@@ -280,7 +276,6 @@ static int TRIDENT_adetect (struct mpxplay_audioout_info_s *aui)
   //main_hw_mpu_private_data = card->linux_snd_card;
   //main_hw_mpu_read = trident_mpu401_read;
   //main_hw_mpu_write = trident_mpu401_write;
-  //main_force_rate(48000);
   return 1;
 
 err_adetect:
@@ -292,6 +287,12 @@ static void TRIDENT_setrate (struct mpxplay_audioout_info_s *aui)
 {
   struct trident_card_s *card = aui->card_private_data;
   tridentdbg("setrate %u\n", aui->freq_card);
+  if (aui->freq_card < 4000) {
+    aui->freq_card = 4000;
+  } else if (aui->freq_card > 48000) {
+    aui->freq_card = 48000;
+  }
+  aui->freq_card = 22050; // Force rate to 22050 for now
   snd_trident_playback_prepare(card->pcm_substream);
 }
 
