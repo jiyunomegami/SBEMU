@@ -609,10 +609,6 @@ static void MAIN_Cleanup()
         HDPMIPT_Uninstall_IOPortTrap(&MPUIOPT_PM);
 }
 
-void main_force_rate (int rate) {
-  MAIN_Options[OPT_RATE].value = rate;
-}
-
 int main(int argc, char* argv[])
 {
     MAIN_CPrintf(CYAN, "\r\n%s ", PROGNAME);
@@ -744,6 +740,9 @@ int main(int argc, char* argv[])
     if(MAIN_Options[OPT_TYPE].value != 6)
         MAIN_Options[OPT_HDMA].value = MAIN_Options[OPT_DMA].value; //16 bit transfer through 8 bit dma
 
+#if USE_LINUX_PCI
+    linux_pcimain();
+#endif
 #if YSBEMU_CONFIG_UTIL
     printf("YSBEMU CONFIGURATION UTILITY\n");
 #endif
