@@ -85,6 +85,7 @@ SBEMU_SRC := sbemu/dbopl.cpp \
 		 sbemu/dpmi/djgpp/gopint.c \
 	     main.c \
 	     qemm.c \
+	     test.c \
 	     utility.c \
 	     hdpmipt.c \
 
