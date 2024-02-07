@@ -1372,8 +1372,10 @@ void MAIN_TSR_InstallationCheck()
                     opt[j].value = MAIN_Options[j].value;
                 }
             }
-            if(MAIN_Options[OPT_RESET].value)
-                printf("Resetting sound card driver...\n");
+            if(MAIN_Options[OPT_RESET].value) {
+              opt[OPT_RESET].value = MAIN_Options[OPT_RESET].value;
+              printf("Resetting sound card driver...\n");
+            }
             printf("\n");
 
             if((MAIN_Options[OPT_ADDR].setcmd&MAIN_SETCMD_SET) || (MAIN_Options[OPT_IRQ].setcmd&MAIN_SETCMD_SET) || (MAIN_Options[OPT_DMA].setcmd&MAIN_SETCMD_SET) || (MAIN_Options[OPT_TYPE].setcmd&MAIN_SETCMD_SET) || (MAIN_Options[OPT_HDMA].setcmd&MAIN_SETCMD_SET))
