@@ -8,4 +8,6 @@ struct mutex {
 #define mutex_lock(x)
 #define mutex_unlock(x)
 
+#define DEFINE_MUTEX(x) struct mutex x
+
 #endif

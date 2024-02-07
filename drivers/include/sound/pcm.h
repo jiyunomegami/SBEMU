@@ -34,80 +34,6 @@
 
 #define PCM_RUNTIME_CHECK(sub) snd_BUG_ON(!(sub) || !(sub)->runtime)
 
-/*
- * This struct defines a memory VMM memory area. There is one of these
- * per VM-area/task.  A VM area is any part of the process virtual memory
- * space that has a special rule for the page-fault handlers (ie a shared
- * library, the executable area etc).
- */
-struct vm_area_struct {
-	/* The first cache line has the info for VMA tree walking. */
-
-	unsigned long vm_start;		/* Our start address within vm_mm. */
-	unsigned long vm_end;		/* The first byte after our end address
-					   within vm_mm. */
-
-	/* linked list of VM areas per task, sorted by address */
-	struct vm_area_struct *vm_next, *vm_prev;
-
-  #if 0
-	struct rb_node vm_rb;
-
-	/*
-	 * Largest free memory gap in bytes to the left of this VMA.
-	 * Either between this VMA and vma->vm_prev, or between one of the
-	 * VMAs below us in the VMA rbtree and its ->vm_prev. This helps
-	 * get_unmapped_area find a free area of the right size.
-	 */
-	unsigned long rb_subtree_gap;
-
-	/* Second cache line starts here. */
-
-	struct mm_struct *vm_mm;	/* The address space we belong to. */
-	pgprot_t vm_page_prot;		/* Access permissions of this VMA. */
-	unsigned long vm_flags;		/* Flags, see mm.h. */
-
-	/*
-	 * For areas with an address space and backing store,
-	 * linkage into the address_space->i_mmap interval tree.
-	 */
-	struct {
-		struct rb_node rb;
-		unsigned long rb_subtree_last;
-	} shared;
-
-	/*
-	 * A file's MAP_PRIVATE vma can be in both i_mmap tree and anon_vma
-	 * list, after a COW of one of the file pages.	A MAP_SHARED vma
-	 * can only be in the i_mmap tree.  An anonymous MAP_PRIVATE, stack
-	 * or brk vma (with NULL file) can only be in an anon_vma list.
-	 */
-	struct list_head anon_vma_chain; /* Serialized by mmap_sem &
-					  * page_table_lock */
-	struct anon_vma *anon_vma;	/* Serialized by page_table_lock */
-
-	/* Function pointers to deal with this struct. */
-	const struct vm_operations_struct *vm_ops;
-
-	/* Information about our backing store: */
-	unsigned long vm_pgoff;		/* Offset (within vm_file) in PAGE_SIZE
-					   units */
-	struct file * vm_file;		/* File we map to (can be NULL). */
-	struct file *vm_prfile;		/* shadow of vm_file */
-#endif
-	void * vm_private_data;		/* was vm_pte (shared mem) */
-#if 0
-#ifndef CONFIG_MMU
-	struct vm_region *vm_region;	/* NOMMU mapping region */
-#endif
-#ifdef CONFIG_NUMA
-	struct mempolicy *vm_policy;	/* NUMA policy for the VMA */
-#endif
-	struct vm_userfaultfd_ctx vm_userfaultfd_ctx;
-#endif
-};
-
-
 struct file;
 struct vm_area_struct;
 struct pm_qos_request {
@@ -1606,5 +1532,86 @@ void snd_pcm_group_init(struct snd_pcm_group *group)
         INIT_LIST_HEAD(&group->substreams);
         //XXX refcount_set(&group->refs, 1);
 }
+
+/**
+ * snd_pcm_set_managed_buffer - set up buffer management for a substream
+ * @substream: the pcm substream instance
+ * @type: DMA type (SNDRV_DMA_TYPE_*)
+ * @data: DMA type dependent data
+ * @size: the requested pre-allocation size in bytes
+ * @max: the max. allowed pre-allocation size
+ *
+ * Do pre-allocation for the given DMA buffer type, and set the managed
+ * buffer allocation mode to the given substream.
+ * In this mode, PCM core will allocate a buffer automatically before PCM
+ * hw_params ops call, and release the buffer after PCM hw_free ops call
+ * as well, so that the driver doesn't need to invoke the allocation and
+ * the release explicitly in its callback.
+ * When a buffer is actually allocated before the PCM hw_params call, it
+ * turns on the runtime buffer_changed flag for drivers changing their h/w
+ * parameters accordingly.
+ *
+ * When @size is non-zero and @max is zero, this tries to allocate for only
+ * the exact buffer size without fallback, and may return -ENOMEM.
+ * Otherwise, the function tries to allocate smaller chunks if the allocation
+ * fails.  This is the behavior of snd_pcm_set_fixed_buffer().
+ *
+ * When both @size and @max are zero, the function only sets up the buffer
+ * for later dynamic allocations. It's used typically for buffers with
+ * SNDRV_DMA_TYPE_VMALLOC type.
+ *
+ * Upon successful buffer allocation and setup, the function returns 0.
+ *
+ * Return: zero if successful, or a negative error code
+ */
+static inline int snd_pcm_set_managed_buffer(struct snd_pcm_substream *substream, int type_ignored,
+                                             struct device *data_ignored, size_t size, size_t max_ignored)
+{
+  //return preallocate_pages(substream, type, data, size, max, true);
+  // Just allocate the pages, don't manage anything
+  // example call: snd_pcm_set_managed_buffer_all(pcm, SNDRV_DMA_TYPE_DEV, &chip->pci->dev, 64*1024, 256*1024);
+  cardmem_t *dm;
+  struct snd_pcm_runtime *runtime;
+  struct snd_dma_buffer *dmab = NULL;
+
+  runtime = substream->runtime;
+  if (runtime->dma_buffer_p) {
+    /* perphaps, we might free the large DMA memory region
+       to save some space here, but the actual solution
+       costs us less time */
+    if (runtime->dma_buffer_p->bytes >= size) {
+      runtime->dma_bytes = size;
+      return 0;       /* ok, do not change */
+    }
+    snd_pcm_lib_free_pages(substream);
+  }
+  if (substream->dma_buffer.area != NULL &&
+      substream->dma_buffer.bytes >= size) {
+    dmab = &substream->dma_buffer; /* use the pre-allocated buffer */
+  } else {
+    /* dma_max=0 means the fixed size preallocation */
+    if (substream->dma_buffer.area && !substream->dma_max)
+      return -ENOMEM;
+    dmab = kzalloc(sizeof(*dmab), GFP_KERNEL);
+    if (!dmab)
+      return -ENOMEM;
+    dmab->dev = substream->dma_buffer.dev;
+    dm = MDma_alloc_cardmem(size);
+    if (!dm) {
+      kfree(dmab);
+      return -ENOMEM;
+    }
+    dmab->private_data = dm;
+    dmab->area = dm->linearptr;
+    dmab->addr = (dma_addr_t)pds_cardmem_physicalptr(dm, dm->linearptr);
+    dmab->bytes = size;
+    dmab->dev.type = substream->dma_buffer.dev.type;
+    dmab->dev.dev = substream->dma_buffer.dev.dev;
+  }
+  snd_pcm_set_runtime_buffer(substream, dmab);
+  runtime->dma_bytes = size;
+  return 0;
+}
+
 
 #endif /* __SOUND_PCM_H */

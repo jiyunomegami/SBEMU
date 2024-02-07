@@ -24,6 +24,7 @@
 
 #include "linux/nospec.h"
 #include "sound/asound.h"
+#include "linux/wait.h"
 
 #define snd_kcontrol_chip(kcontrol) ((kcontrol)->private_data)
 

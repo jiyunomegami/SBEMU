@@ -55,6 +55,12 @@
  */
 #define ENOSYS          38      /* Invalid system call number */
 
+#define	ETIMEDOUT	110	/* Connection timed out */
+
+#define EPROBE_DEFER	517	/* Driver requests probe retry */
+
+#define ENOTSUPP        524     /* Operation is not supported */
+
 /*
  * Kernel pointers have redundant information, so we can use a
  * scheme where we can return either an error code or a normal

@@ -1,6 +1,9 @@
 #ifndef SBEMU_LINUX_TYPES_H
 #define SBEMU_LINUX_TYPES_H
 
+#define true 1
+#define false 0
+
 #define __LITTLE_ENDIAN 1
 
 #include <string.h>
@@ -27,7 +30,13 @@ typedef signed long long __s64;
 #define __iomem /*__iomem*/
 #define __user /*__user*/
 #define __init /*__init*/
+//#ifndef __always_inline
 //#define __always_inline inline
+//#endif
+//#define __pure /*__pure*/
+#define __force /*__force*/
+
+#include "linux/compiler.h"
 
 #ifndef _LINUX_TYPES_H
 #define _LINUX_TYPES_H
@@ -91,7 +100,16 @@ typedef __u32 __bitwise __wsum;
 #endif /*  __ASSEMBLY__ */
 #endif /* _UAPI_LINUX_TYPES_H */
 
+typedef int irqreturn_t;
+typedef irqreturn_t (*irq_handler_t)(int, void *);
+struct irq_domain {
+};
+
 #ifndef __ASSEMBLY__
+
+typedef struct {
+	int counter;
+} atomic_t;
 
 #include "linux/bitops.h"
 
@@ -104,12 +122,13 @@ typedef __kernel_ulong_t kernel_ulong_t;
 typedef long		__kernel_long_t;
 typedef __kernel_long_t	__kernel_off_t;
 
+typedef unsigned short		umode_t;
+
 #if 0
 typedef __kernel_fd_set		fd_set;
 typedef __kernel_dev_t		dev_t;
 typedef __kernel_ino_t		ino_t;
 typedef __kernel_mode_t		mode_t;
-typedef unsigned short		umode_t;
 typedef __u32			nlink_t;
 typedef __kernel_off_t		off_t;
 typedef __kernel_pid_t		pid_t;
@@ -123,6 +142,7 @@ typedef __kernel_mqd_t		mqd_t;
 
 typedef _Bool			bool;
 
+typedef long loff_t;
 #if 0
 typedef __kernel_uid32_t	uid_t;
 typedef __kernel_gid32_t	gid_t;
@@ -267,10 +287,6 @@ typedef phys_addr_t resource_size_t;
  * big enough to enclose whatever representation is used by a given platform.
  */
 typedef unsigned long irq_hw_number_t;
-
-typedef struct {
-	int counter;
-} atomic_t;
 
 #ifdef CONFIG_64BIT
 typedef struct {
