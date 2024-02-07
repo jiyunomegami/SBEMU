@@ -28,6 +28,9 @@ PROGNAME = "SBEMU";
 #define MAIN_SBEMU_VER "1.0 beta3"
 #endif
 
+#if USE_LINUX_PCI
+extern int linux_pcimain ();
+#endif
 #if YSBEMU_CONFIG_UTIL
 #undef MAIN_SBEMU_VER
 #define MAIN_SBEMU_VER "Yamaha DS-XG (YMF7xx) config version"
