@@ -287,7 +287,7 @@ static unsigned int snd_emu10k1x_ptr_read(struct emu10k1x * emu,
 	regptr = (reg << 16) | chn;
 
 	spin_lock_irqsave(&emu->emu_lock, flags);
-	linux_outl(regptr, emu->port + PTR);
+	outl(regptr, emu->port + PTR);
 	val = inl(emu->port + DATA);
 	spin_unlock_irqrestore(&emu->emu_lock, flags);
 	return val;
@@ -304,8 +304,8 @@ static void snd_emu10k1x_ptr_write(struct emu10k1x *emu,
 	regptr = (reg << 16) | chn;
 
 	spin_lock_irqsave(&emu->emu_lock, flags);
-	linux_outl(regptr, emu->port + PTR);
-	linux_outl(data, emu->port + DATA);
+	outl(regptr, emu->port + PTR);
+	outl(data, emu->port + DATA);
 	spin_unlock_irqrestore(&emu->emu_lock, flags);
 }
 
@@ -316,7 +316,7 @@ static void snd_emu10k1x_intr_enable(struct emu10k1x *emu, unsigned int intrenb)
 
 	spin_lock_irqsave(&emu->emu_lock, flags);
 	intr_enable = inl(emu->port + INTE) | intrenb;
-	linux_outl(intr_enable, emu->port + INTE);
+	outl(intr_enable, emu->port + INTE);
 	spin_unlock_irqrestore(&emu->emu_lock, flags);
 }
 
@@ -327,7 +327,7 @@ static void snd_emu10k1x_intr_disable(struct emu10k1x *emu, unsigned int intrenb
 
 	spin_lock_irqsave(&emu->emu_lock, flags);
 	intr_enable = inl(emu->port + INTE) & ~intrenb;
-	linux_outl(intr_enable, emu->port + INTE);
+	outl(intr_enable, emu->port + INTE);
 	spin_unlock_irqrestore(&emu->emu_lock, flags);
 }
 
@@ -336,7 +336,7 @@ static void snd_emu10k1x_gpio_write(struct emu10k1x *emu, unsigned int value)
 	unsigned long flags;
 
 	spin_lock_irqsave(&emu->emu_lock, flags);
-	linux_outl(value, emu->port + GPIO);
+	outl(value, emu->port + GPIO);
 	spin_unlock_irqrestore(&emu->emu_lock, flags);
 }
 
@@ -702,7 +702,7 @@ static unsigned short snd_emu10k1x_ac97_read(struct snd_ac97 *ac97,
 	unsigned short val;
   
 	spin_lock_irqsave(&emu->emu_lock, flags);
-	linux_outb(reg, emu->port + AC97ADDRESS);
+	outb(reg, emu->port + AC97ADDRESS);
 	val = inw(emu->port + AC97DATA);
 	spin_unlock_irqrestore(&emu->emu_lock, flags);
 	return val;
@@ -715,8 +715,8 @@ static void snd_emu10k1x_ac97_write(struct snd_ac97 *ac97,
 	unsigned long flags;
   
 	spin_lock_irqsave(&emu->emu_lock, flags);
-	linux_outb(reg, emu->port + AC97ADDRESS);
-	linux_outw(val, emu->port + AC97DATA);
+	outb(reg, emu->port + AC97ADDRESS);
+	outw(val, emu->port + AC97DATA);
 	spin_unlock_irqrestore(&emu->emu_lock, flags);
 }
 
@@ -749,9 +749,9 @@ void snd_emu10k1x_free(struct snd_card *card)
 
 	snd_emu10k1x_ptr_write(chip, TRIGGER_CHANNEL, 0, 0);
 	// disable interrupts
-	linux_outl(0, chip->port + INTE);
+	outl(0, chip->port + INTE);
 	// disable audio
-	linux_outl(HCFG_LOCKSOUNDCACHE, chip->port + HCFG);
+	outl(HCFG_LOCKSOUNDCACHE, chip->port + HCFG);
 }
 
 irqreturn_t snd_emu10k1x_interrupt(int irq, void *dev_id)
@@ -799,7 +799,7 @@ irqreturn_t snd_emu10k1x_interrupt(int irq, void *dev_id)
 	}
 		
 	// acknowledge the interrupt if necessary
-	linux_outl(status, chip->port + IPR);
+	outl(status, chip->port + IPR);
 
 	/* dev_dbg(chip->card->dev, "interrupt %08x\n", status); */
 	return IRQ_HANDLED;
@@ -921,7 +921,7 @@ static int snd_emu10k1x_create(struct snd_card *card,
 	dev_info(card->dev, "Model %04x Rev %08x Serial %08x\n", chip->model,
 		   chip->revision, chip->serial);
 
-	linux_outl(0, chip->port + INTE);	
+	outl(0, chip->port + INTE);	
 
 	for(ch = 0; ch < 3; ch++) {
 		chip->voices[ch].emu = chip;
@@ -973,7 +973,7 @@ static int snd_emu10k1x_create(struct snd_card *card,
 	snd_emu10k1x_gpio_write(chip, 0x1080); // analog mode
 #endif
 
-	linux_outl(HCFG_LOCKSOUNDCACHE|HCFG_AUDIOENABLE, chip->port+HCFG);
+	outl(HCFG_LOCKSOUNDCACHE|HCFG_AUDIOENABLE, chip->port+HCFG);
 
 	return 0;
 }
@@ -1553,7 +1553,7 @@ u16 emu10k1x_ac97_read (struct snd_card *card, u8 reg)
   u16 val;
   struct emu10k1x *emu = card->private_data;
   spin_lock_irqsave(&emu->emu_lock, flags);
-  linux_outb(reg, emu->port + AC97ADDRESS);
+  outb(reg, emu->port + AC97ADDRESS);
   val = inw(emu->port + AC97DATA);
   spin_unlock_irqrestore(&emu->emu_lock, flags);
   return val;
@@ -1563,8 +1563,8 @@ void emu10k1x_ac97_write (struct snd_card *card, u8 reg, u16 val)
 {
   struct emu10k1x *emu = card->private_data;
   spin_lock_irqsave(&emu->emu_lock, flags);
-  linux_outb(reg, emu->port + AC97ADDRESS);
-  linux_outw(val, emu->port + AC97DATA);
+  outb(reg, emu->port + AC97ADDRESS);
+  outw(val, emu->port + AC97DATA);
   spin_unlock_irqrestore(&emu->emu_lock, flags);
 }
 

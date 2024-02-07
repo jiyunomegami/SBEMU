@@ -1887,11 +1887,6 @@ irqreturn_t ct_20k1_interrupt(int irq, void *dev_id)
 		return IRQ_NONE;
         //printk("s%8.8X\n",status);
 
-#if 0
-        if ((xfi_int_cnt % 500) == 0) DBG_Logi("xfiirq %u\n", xfi_int_cnt);
-#endif
-        xfi_int_cnt++;
-
 	if (hw->irq_callback) {
 		hw->irq_callback(hw->irq_callback_data, status);
         }
@@ -2118,7 +2113,7 @@ static u32 hw_read_20kx(struct hw *hw, u32 reg)
 
 	spin_lock_irqsave(
 		&container_of(hw, struct hw20k1, hw)->reg_20k1_lock, flags);
-	linux_outl(reg, hw->io_base + 0x0);
+	outl(reg, hw->io_base + 0x0);
 	value = inl(hw->io_base + 0x4);
 	spin_unlock_irqrestore(
 		&container_of(hw, struct hw20k1, hw)->reg_20k1_lock, flags);
@@ -2134,8 +2129,8 @@ static void hw_write_20kx(struct hw *hw, u32 reg, u32 data)
 		&container_of(hw, struct hw20k1, hw)->reg_20k1_lock, flags);
         //if (reg != GIP && reg != TIMR)
         //  printk("hw_write_20kx(%8.8X, %8.8X)\n", reg, data);
-	linux_outl(reg, hw->io_base + 0x0);
-	linux_outl(data, hw->io_base + 0x4);
+	outl(reg, hw->io_base + 0x0);
+	outl(data, hw->io_base + 0x4);
 	spin_unlock_irqrestore(
 		&container_of(hw, struct hw20k1, hw)->reg_20k1_lock, flags);
 
@@ -2148,7 +2143,7 @@ static u32 hw_read_pci(struct hw *hw, u32 reg)
 
 	spin_lock_irqsave(
 		&container_of(hw, struct hw20k1, hw)->reg_pci_lock, flags);
-	linux_outl(reg, hw->io_base + 0x10);
+	outl(reg, hw->io_base + 0x10);
 	value = inl(hw->io_base + 0x14);
 	spin_unlock_irqrestore(
 		&container_of(hw, struct hw20k1, hw)->reg_pci_lock, flags);
@@ -2163,8 +2158,8 @@ static void hw_write_pci(struct hw *hw, u32 reg, u32 data)
 	spin_lock_irqsave(
 		&container_of(hw, struct hw20k1, hw)->reg_pci_lock, flags);
 	//printk("hw_write_pci(%8.8X, %8.8X)\n", reg, data);
-	linux_outl(reg, hw->io_base + 0x10);
-	linux_outl(data, hw->io_base + 0x14);
+	outl(reg, hw->io_base + 0x10);
+	outl(data, hw->io_base + 0x14);
 	spin_unlock_irqrestore(
 		&container_of(hw, struct hw20k1, hw)->reg_pci_lock, flags);
 }
@@ -2300,21 +2295,3 @@ int destroy_20k1_hw_obj(struct hw *hw)
 	kfree(container_of(hw, struct hw20k1, hw));
 	return 0;
 }
-
-#if 0
-#include "au_cards/ac97_def.h"
-
-static void ac97_write (struct hw *hw, u32 reg, u32 val)
-{
-  hw_write_20kx(hw, AC97A, reg);
-  hw_write_20kx(hw, AC97D, val);
-}
-
-void snd_emu20k1_ac97_init (struct hw *hw)
-{
-  ac97_write(hw, AC97_MASTER_VOL_STEREO, 0x0404);
-  ac97_write(hw, AC97_PCMOUT_VOL, 0x0404);
-  ac97_write(hw, AC97_HEADPHONE_VOL, 0x0404);
-  ac97_write(hw, AC97_EXTENDED_STATUS, AC97_EA_SPDIF);
-}
-#endif

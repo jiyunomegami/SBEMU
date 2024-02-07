@@ -73,7 +73,7 @@ static void snd_trident_print_voice_regs(struct snd_trident *trident, int voice)
 	unsigned int val, tmp;
 
 	dev_dbg(trident->card->dev, "Trident voice %i:\n", voice);
-	linux_outb(voice, TRID_REG(trident, T4D_LFO_GC_CIR));
+	outb(voice, TRID_REG(trident, T4D_LFO_GC_CIR));
 	val = inl(TRID_REG(trident, CH_LBA));
 	dev_dbg(trident->card->dev, "LBA: 0x%x\n", val);
 	val = inl(TRID_REG(trident, CH_GVSEL_PAN_VOL_CTRL_EC));
@@ -131,7 +131,7 @@ static unsigned short snd_trident_codec_read(struct snd_ac97 *ac97, unsigned sho
 	spin_lock_irqsave(&trident->reg_lock, flags);
 	if (trident->device == TRIDENT_DEVICE_ID_DX) {
 		data = (DX_AC97_BUSY_READ | (reg & 0x000000ff));
-		linux_outl(data, TRID_REG(trident, DX_ACR1_AC97_R));
+		outl(data, TRID_REG(trident, DX_ACR1_AC97_R));
 		do {
 			data = inl(TRID_REG(trident, DX_ACR1_AC97_R));
 			if ((data & DX_AC97_BUSY_READ) == 0)
@@ -140,7 +140,7 @@ static unsigned short snd_trident_codec_read(struct snd_ac97 *ac97, unsigned sho
 	} else if (trident->device == TRIDENT_DEVICE_ID_NX) {
 		data = (NX_AC97_BUSY_READ | (reg & 0x000000ff));
 		treg = ac97->num == 0 ? NX_ACR2_AC97_R_PRIMARY : NX_ACR3_AC97_R_SECONDARY;
-		linux_outl(data, TRID_REG(trident, treg));
+		outl(data, TRID_REG(trident, treg));
 		do {
 			data = inl(TRID_REG(trident, treg));
 			if ((data & 0x00000C00) == 0)
@@ -150,7 +150,7 @@ static unsigned short snd_trident_codec_read(struct snd_ac97 *ac97, unsigned sho
 		data = SI_AC97_BUSY_READ | SI_AC97_AUDIO_BUSY | (reg & 0x000000ff);
 		if (ac97->num == 1)
 			data |= SI_AC97_SECONDARY;
-		linux_outl(data, TRID_REG(trident, SI_AC97_READ));
+		outl(data, TRID_REG(trident, SI_AC97_READ));
 		do {
 			data = inl(TRID_REG(trident, SI_AC97_READ));
 			if ((data & (SI_AC97_BUSY_READ)) == 0)
@@ -235,7 +235,7 @@ static void snd_trident_codec_write(struct snd_ac97 *ac97, unsigned short reg,
 		spin_unlock_irqrestore(&trident->reg_lock, flags);
 		return;
 	}
-	linux_outl(data, TRID_REG(trident, address));
+	outl(data, TRID_REG(trident, address));
 	spin_unlock_irqrestore(&trident->reg_lock, flags);
 }
 
@@ -313,7 +313,7 @@ static void snd_trident_enable_eso(struct snd_trident * trident)
 	val |= MIDLP_IE;
 	if (trident->device == TRIDENT_DEVICE_ID_SI7018)
 		val |= BANK_B_EN;
-	linux_outl(val, TRID_REG(trident, T4D_LFO_GC_CIR));
+	outl(val, TRID_REG(trident, T4D_LFO_GC_CIR));
 }
 
 /*---------------------------------------------------------------------------
@@ -338,7 +338,7 @@ static void snd_trident_disable_eso(struct snd_trident * trident)
 	tmp = inl(TRID_REG(trident, T4D_LFO_GC_CIR));
 	tmp &= ~ENDLP_IE;
 	tmp &= ~MIDLP_IE;
-	linux_outl(tmp, TRID_REG(trident, T4D_LFO_GC_CIR));
+	outl(tmp, TRID_REG(trident, T4D_LFO_GC_CIR));
 }
 
 /*---------------------------------------------------------------------------
@@ -360,7 +360,7 @@ void snd_trident_start_voice(struct snd_trident * trident, unsigned int voice)
 	unsigned int mask = 1 << (voice & 0x1f);
 	unsigned int reg = (voice & 0x20) ? T4D_START_B : T4D_START_A;
 
-	linux_outl(mask, TRID_REG(trident, reg));
+	outl(mask, TRID_REG(trident, reg));
 }
 
 EXPORT_SYMBOL(snd_trident_start_voice);
@@ -384,7 +384,7 @@ void snd_trident_stop_voice(struct snd_trident * trident, unsigned int voice)
 	unsigned int mask = 1 << (voice & 0x1f);
 	unsigned int reg = (voice & 0x20) ? T4D_STOP_B : T4D_STOP_A;
 
-	linux_outl(mask, TRID_REG(trident, reg));
+	outl(mask, TRID_REG(trident, reg));
 }
 
 EXPORT_SYMBOL(snd_trident_stop_voice);
@@ -546,12 +546,12 @@ void snd_trident_write_voice_regs(struct snd_trident * trident,
 		return;
 	}
 
-	linux_outb(voice->number, TRID_REG(trident, T4D_LFO_GC_CIR));
-	linux_outl(regs[0], TRID_REG(trident, CH_START + 0));
-	linux_outl(regs[1], TRID_REG(trident, CH_START + 4));
-	linux_outl(regs[2], TRID_REG(trident, CH_START + 8));
-	linux_outl(regs[3], TRID_REG(trident, CH_START + 12));
-	linux_outl(regs[4], TRID_REG(trident, CH_START + 16));
+	outb(voice->number, TRID_REG(trident, T4D_LFO_GC_CIR));
+	outl(regs[0], TRID_REG(trident, CH_START + 0));
+	outl(regs[1], TRID_REG(trident, CH_START + 4));
+	outl(regs[2], TRID_REG(trident, CH_START + 8));
+	outl(regs[3], TRID_REG(trident, CH_START + 12));
+	outl(regs[4], TRID_REG(trident, CH_START + 16));
 
 #if 0
 	dev_dbg(trident->card->dev, "written %i channel:\n", voice->number);
@@ -587,11 +587,11 @@ static void snd_trident_write_cso_reg(struct snd_trident * trident,
 				      unsigned int CSO)
 {
 	voice->CSO = CSO;
-	linux_outb(voice->number, TRID_REG(trident, T4D_LFO_GC_CIR));
+	outb(voice->number, TRID_REG(trident, T4D_LFO_GC_CIR));
 	if (trident->device != TRIDENT_DEVICE_ID_NX) {
-		linux_outw(voice->CSO, TRID_REG(trident, CH_DX_CSO_ALPHA_FMS) + 2);
+		outw(voice->CSO, TRID_REG(trident, CH_DX_CSO_ALPHA_FMS) + 2);
 	} else {
-		linux_outl((voice->Delta << 24) |
+		outl((voice->Delta << 24) |
 		     (voice->CSO & 0x00ffffff), TRID_REG(trident, CH_NX_DELTA_CSO));
 	}
 }
@@ -613,11 +613,11 @@ static void snd_trident_write_eso_reg(struct snd_trident * trident,
 				      unsigned int ESO)
 {
 	voice->ESO = ESO;
-	linux_outb(voice->number, TRID_REG(trident, T4D_LFO_GC_CIR));
+	outb(voice->number, TRID_REG(trident, T4D_LFO_GC_CIR));
 	if (trident->device != TRIDENT_DEVICE_ID_NX) {
-		linux_outw(voice->ESO, TRID_REG(trident, CH_DX_ESO_DELTA) + 2);
+		outw(voice->ESO, TRID_REG(trident, CH_DX_ESO_DELTA) + 2);
 	} else {
-		linux_outl(((voice->Delta << 16) & 0xff000000) | (voice->ESO & 0x00ffffff),
+		outl(((voice->Delta << 16) & 0xff000000) | (voice->ESO & 0x00ffffff),
 		     TRID_REG(trident, CH_NX_DELTA_ESO));
 	}
 }
@@ -639,15 +639,15 @@ static void snd_trident_write_vol_reg(struct snd_trident * trident,
 				      unsigned int Vol)
 {
 	voice->Vol = Vol;
-	linux_outb(voice->number, TRID_REG(trident, T4D_LFO_GC_CIR));
+	outb(voice->number, TRID_REG(trident, T4D_LFO_GC_CIR));
 	switch (trident->device) {
 	case TRIDENT_DEVICE_ID_DX:
 	case TRIDENT_DEVICE_ID_NX:
-		linux_outb(voice->Vol >> 2, TRID_REG(trident, CH_GVSEL_PAN_VOL_CTRL_EC + 2));
+		outb(voice->Vol >> 2, TRID_REG(trident, CH_GVSEL_PAN_VOL_CTRL_EC + 2));
 		break;
 	case TRIDENT_DEVICE_ID_SI7018:
 		/* dev_dbg(trident->card->dev, "voice->Vol = 0x%x\n", voice->Vol); */
-		linux_outw((voice->CTRL << 12) | voice->Vol,
+		outw((voice->CTRL << 12) | voice->Vol,
 		     TRID_REG(trident, CH_GVSEL_PAN_VOL_CTRL_EC));
 		break;
 	}
@@ -670,8 +670,8 @@ static void snd_trident_write_pan_reg(struct snd_trident * trident,
 				      unsigned int Pan)
 {
 	voice->Pan = Pan;
-	linux_outb(voice->number, TRID_REG(trident, T4D_LFO_GC_CIR));
-	linux_outb(((voice->GVSel & 0x01) << 7) | (voice->Pan & 0x7f),
+	outb(voice->number, TRID_REG(trident, T4D_LFO_GC_CIR));
+	outb(((voice->GVSel & 0x01) << 7) | (voice->Pan & 0x7f),
 	     TRID_REG(trident, CH_GVSEL_PAN_VOL_CTRL_EC + 3));
 }
 
@@ -692,8 +692,8 @@ static void snd_trident_write_rvol_reg(struct snd_trident * trident,
 				       unsigned int RVol)
 {
 	voice->RVol = RVol;
-	linux_outb(voice->number, TRID_REG(trident, T4D_LFO_GC_CIR));
-	linux_outw(((voice->FMC & 0x0003) << 14) | ((voice->RVol & 0x007f) << 7) |
+	outb(voice->number, TRID_REG(trident, T4D_LFO_GC_CIR));
+	outw(((voice->FMC & 0x0003) << 14) | ((voice->RVol & 0x007f) << 7) |
 	     (voice->CVol & 0x007f),
 	     TRID_REG(trident, trident->device == TRIDENT_DEVICE_ID_NX ?
 		      CH_NX_ALPHA_FMS_FMC_RVOL_CVOL : CH_DX_FMC_RVOL_CVOL));
@@ -716,8 +716,8 @@ static void snd_trident_write_cvol_reg(struct snd_trident * trident,
 				       unsigned int CVol)
 {
 	voice->CVol = CVol;
-	linux_outb(voice->number, TRID_REG(trident, T4D_LFO_GC_CIR));
-	linux_outw(((voice->FMC & 0x0003) << 14) | ((voice->RVol & 0x007f) << 7) |
+	outb(voice->number, TRID_REG(trident, T4D_LFO_GC_CIR));
+	outw(((voice->FMC & 0x0003) << 14) | ((voice->RVol & 0x007f) << 7) |
 	     (voice->CVol & 0x007f),
 	     TRID_REG(trident, trident->device == TRIDENT_DEVICE_ID_NX ?
 		      CH_NX_ALPHA_FMS_FMC_RVOL_CVOL : CH_DX_FMC_RVOL_CVOL));
@@ -1118,26 +1118,26 @@ static int snd_trident_capture_prepare(struct snd_pcm_substream *substream)
 	spin_lock_irq(&trident->reg_lock);
 
 	// Initialize the channel and set channel Mode
-	linux_outb(0, TRID_REG(trident, LEGACY_DMAR15));
+	outb(0, TRID_REG(trident, LEGACY_DMAR15));
 
 	// Set DMA channel operation mode register
-	linux_outb(0x54, TRID_REG(trident, LEGACY_DMAR11));
+	outb(0x54, TRID_REG(trident, LEGACY_DMAR11));
 
 	// Set channel buffer Address, DMAR0 expects contiguous PCI memory area	
 	voice->LBA = runtime->dma_addr;
-	linux_outl(voice->LBA, TRID_REG(trident, LEGACY_DMAR0));
+	outl(voice->LBA, TRID_REG(trident, LEGACY_DMAR0));
 	if (voice->memblk)
 		voice->LBA = voice->memblk->offset;
 
 	// set ESO
 	ESO_bytes = snd_pcm_lib_buffer_bytes(substream) - 1;
-	linux_outb((ESO_bytes & 0x00ff0000) >> 16, TRID_REG(trident, LEGACY_DMAR6));
-	linux_outw((ESO_bytes & 0x0000ffff), TRID_REG(trident, LEGACY_DMAR4));
+	outb((ESO_bytes & 0x00ff0000) >> 16, TRID_REG(trident, LEGACY_DMAR6));
+	outw((ESO_bytes & 0x0000ffff), TRID_REG(trident, LEGACY_DMAR4));
 	ESO_bytes++;
 
 	// Set channel sample rate, 4.12 format
 	val = (((unsigned int) 48000L << 12) + (runtime->rate/2)) / runtime->rate;
-	linux_outw(val, TRID_REG(trident, T4D_SBDELTA_DELTA_R));
+	outw(val, TRID_REG(trident, T4D_SBDELTA_DELTA_R));
 
 	// Set channel interrupt blk length
 	if (snd_pcm_format_width(runtime->format) == 16) {
@@ -1146,7 +1146,7 @@ static int snd_trident_capture_prepare(struct snd_pcm_substream *substream)
 		val = (unsigned short) (ESO_bytes - 1);
 	}
 
-	linux_outl((val << 16) | val, TRID_REG(trident, T4D_SBBL_SBCL));
+	outl((val << 16) | val, TRID_REG(trident, T4D_SBBL_SBCL));
 
 	// Right now, set format and start to run captureing, 
 	// continuous run loop enable.
@@ -1355,7 +1355,7 @@ static int snd_trident_foldback_prepare(struct snd_pcm_substream *substream)
 	voice->Attribute = 0;
 
 	/* set up capture channel */
-	linux_outb(((voice->number & 0x3f) | 0x80), TRID_REG(trident, T4D_RCI + voice->foldback_chan));
+	outb(((voice->number & 0x3f) | 0x80), TRID_REG(trident, T4D_RCI + voice->foldback_chan));
 
 	snd_trident_write_voice_regs(trident, voice);
 
@@ -1516,15 +1516,15 @@ static int snd_trident_spdif_prepare(struct snd_pcm_substream *substream)
 		/* prepare surrogate IRQ channel */
 		snd_trident_write_voice_regs(trident, voice);
 
-		linux_outw((RESO & 0xffff), TRID_REG(trident, NX_SPESO));
-		linux_outb((RESO >> 16), TRID_REG(trident, NX_SPESO + 2));
-		linux_outl((LBAO & 0xfffffffc), TRID_REG(trident, NX_SPLBA));
-		linux_outw((voice->CSO & 0xffff), TRID_REG(trident, NX_SPCTRL_SPCSO));
-		linux_outb((voice->CSO >> 16), TRID_REG(trident, NX_SPCTRL_SPCSO + 2));
+		outw((RESO & 0xffff), TRID_REG(trident, NX_SPESO));
+		outb((RESO >> 16), TRID_REG(trident, NX_SPESO + 2));
+		outl((LBAO & 0xfffffffc), TRID_REG(trident, NX_SPLBA));
+		outw((voice->CSO & 0xffff), TRID_REG(trident, NX_SPCTRL_SPCSO));
+		outb((voice->CSO >> 16), TRID_REG(trident, NX_SPCTRL_SPCSO + 2));
 
 		/* set SPDIF setting */
-		linux_outb(trident->spdif_pcm_ctrl, TRID_REG(trident, NX_SPCTRL_SPCSO + 3));
-		linux_outl(trident->spdif_pcm_bits, TRID_REG(trident, NX_SPCSTATUS));
+		outb(trident->spdif_pcm_ctrl, TRID_REG(trident, NX_SPCTRL_SPCSO + 3));
+		outl(trident->spdif_pcm_bits, TRID_REG(trident, NX_SPCSTATUS));
 
 	} else {	/* SiS */
 	
@@ -1577,13 +1577,13 @@ static int snd_trident_spdif_prepare(struct snd_pcm_substream *substream)
 			evoice->ESO = (runtime->period_size * 2) - 1;
 		}
 
-		linux_outl(trident->spdif_pcm_bits, TRID_REG(trident, SI_SPDIF_CS));
+		outl(trident->spdif_pcm_bits, TRID_REG(trident, SI_SPDIF_CS));
 		temp = inl(TRID_REG(trident, T4D_LFO_GC_CIR));
 		temp &= ~(1<<19);
-		linux_outl(temp, TRID_REG(trident, T4D_LFO_GC_CIR));
+		outl(temp, TRID_REG(trident, T4D_LFO_GC_CIR));
 		temp = inl(TRID_REG(trident, SI_SERIAL_INTF_CTRL));
 		temp |= SPDIF_EN;
-		linux_outl(temp, TRID_REG(trident, SI_SERIAL_INTF_CTRL));
+		outl(temp, TRID_REG(trident, SI_SERIAL_INTF_CTRL));
 	}
 
 	spin_unlock_irq(&trident->reg_lock);
@@ -1658,34 +1658,34 @@ int snd_trident_trigger(struct snd_pcm_substream *substream,
 	}
 	if (spdif_flag) {
 		if (trident->device != TRIDENT_DEVICE_ID_SI7018) {
-			linux_outl(trident->spdif_pcm_bits, TRID_REG(trident, NX_SPCSTATUS));
+			outl(trident->spdif_pcm_bits, TRID_REG(trident, NX_SPCSTATUS));
 			val = trident->spdif_pcm_ctrl;
 			if (!go)
 				val &= ~(0x28);
-			linux_outb(val, TRID_REG(trident, NX_SPCTRL_SPCSO + 3));
+			outb(val, TRID_REG(trident, NX_SPCTRL_SPCSO + 3));
 		} else {
-			linux_outl(trident->spdif_pcm_bits, TRID_REG(trident, SI_SPDIF_CS));
+			outl(trident->spdif_pcm_bits, TRID_REG(trident, SI_SPDIF_CS));
 			val = inl(TRID_REG(trident, SI_SERIAL_INTF_CTRL)) | SPDIF_EN;
-			linux_outl(val, TRID_REG(trident, SI_SERIAL_INTF_CTRL));
+			outl(val, TRID_REG(trident, SI_SERIAL_INTF_CTRL));
 		}
 	}
 	if (!go)
-		linux_outl(what, TRID_REG(trident, T4D_STOP_B));
+		outl(what, TRID_REG(trident, T4D_STOP_B));
 	val = inl(TRID_REG(trident, T4D_AINTEN_B));
 	if (go) {
 		val |= whati;
 	} else {
 		val &= ~whati;
 	}
-	linux_outl(val, TRID_REG(trident, T4D_AINTEN_B));
+	outl(val, TRID_REG(trident, T4D_AINTEN_B));
 	if (go) {
-		linux_outl(what, TRID_REG(trident, T4D_START_B));
+		outl(what, TRID_REG(trident, T4D_START_B));
 
 		if (capture_flag && trident->device != TRIDENT_DEVICE_ID_SI7018)
-			linux_outb(trident->bDMAStart, TRID_REG(trident, T4D_SBCTRL_SBE2R_SBDD));
+			outb(trident->bDMAStart, TRID_REG(trident, T4D_SBCTRL_SBE2R_SBDD));
 	} else {
 		if (capture_flag && trident->device != TRIDENT_DEVICE_ID_SI7018)
-			linux_outb(0x00, TRID_REG(trident, T4D_SBCTRL_SBE2R_SBDD));
+			outb(0x00, TRID_REG(trident, T4D_SBCTRL_SBE2R_SBDD));
 	}
 	spin_unlock(&trident->reg_lock);
 	return 0;
@@ -1714,7 +1714,7 @@ snd_pcm_uframes_t snd_trident_playback_pointer(struct snd_pcm_substream *substre
 
 	spin_lock(&trident->reg_lock);
 
-	linux_outb(voice->number, TRID_REG(trident, T4D_LFO_GC_CIR));
+	outb(voice->number, TRID_REG(trident, T4D_LFO_GC_CIR));
 
 	if (trident->device != TRIDENT_DEVICE_ID_NX) {
 		cso = inw(TRID_REG(trident, CH_DX_CSO_ALPHA_FMS + 2));
@@ -2037,17 +2037,17 @@ static int snd_trident_spdif_close(struct snd_pcm_substream *substream)
 	spin_lock_irq(&trident->reg_lock);
 	// restore default SPDIF setting
 	if (trident->device != TRIDENT_DEVICE_ID_SI7018) {
-		linux_outb(trident->spdif_ctrl, TRID_REG(trident, NX_SPCTRL_SPCSO + 3));
-		linux_outl(trident->spdif_bits, TRID_REG(trident, NX_SPCSTATUS));
+		outb(trident->spdif_ctrl, TRID_REG(trident, NX_SPCTRL_SPCSO + 3));
+		outl(trident->spdif_bits, TRID_REG(trident, NX_SPCSTATUS));
 	} else {
-		linux_outl(trident->spdif_bits, TRID_REG(trident, SI_SPDIF_CS));
+		outl(trident->spdif_bits, TRID_REG(trident, SI_SPDIF_CS));
 		temp = inl(TRID_REG(trident, SI_SERIAL_INTF_CTRL));
 		if (trident->spdif_ctrl) {
 			temp |= SPDIF_EN;
 		} else {
 			temp &= ~SPDIF_EN;
 		}
-		linux_outl(temp, TRID_REG(trident, SI_SERIAL_INTF_CTRL));
+		outl(temp, TRID_REG(trident, SI_SERIAL_INTF_CTRL));
 	}
 	spin_unlock_irq(&trident->reg_lock);
 	trident->spdif_pcm_ctl->vd[0].access |= SNDRV_CTL_ELEM_ACCESS_INACTIVE;
@@ -2153,7 +2153,7 @@ static int snd_trident_foldback_close(struct snd_pcm_substream *substream)
 	
 	/* stop capture channel */
 	spin_lock_irq(&trident->reg_lock);
-	linux_outb(0x00, TRID_REG(trident, T4D_RCI + voice->foldback_chan));
+	outb(0x00, TRID_REG(trident, T4D_RCI + voice->foldback_chan));
 	spin_unlock_irq(&trident->reg_lock);
 	return 0;
 }
@@ -2433,17 +2433,17 @@ static int snd_trident_spdif_control_put(struct snd_kcontrol *kcontrol,
 	trident->spdif_ctrl = val;
 	if (trident->device != TRIDENT_DEVICE_ID_SI7018) {
 		if ((inb(TRID_REG(trident, NX_SPCTRL_SPCSO + 3)) & 0x10) == 0) {
-			linux_outl(trident->spdif_bits, TRID_REG(trident, NX_SPCSTATUS));
-			linux_outb(trident->spdif_ctrl, TRID_REG(trident, NX_SPCTRL_SPCSO + 3));
+			outl(trident->spdif_bits, TRID_REG(trident, NX_SPCSTATUS));
+			outb(trident->spdif_ctrl, TRID_REG(trident, NX_SPCTRL_SPCSO + 3));
 		}
 	} else {
 		if (trident->spdif == NULL) {
 			unsigned int temp;
-			linux_outl(trident->spdif_bits, TRID_REG(trident, SI_SPDIF_CS));
+			outl(trident->spdif_bits, TRID_REG(trident, SI_SPDIF_CS));
 			temp = inl(TRID_REG(trident, SI_SERIAL_INTF_CTRL)) & ~SPDIF_EN;
 			if (val)
 				temp |= SPDIF_EN;
-			linux_outl(temp, TRID_REG(trident, SI_SERIAL_INTF_CTRL));
+			outl(temp, TRID_REG(trident, SI_SERIAL_INTF_CTRL));
 		}
 	}
 	spin_unlock_irq(&trident->reg_lock);
@@ -2504,10 +2504,10 @@ static int snd_trident_spdif_default_put(struct snd_kcontrol *kcontrol,
 	trident->spdif_bits = val;
 	if (trident->device != TRIDENT_DEVICE_ID_SI7018) {
 		if ((inb(TRID_REG(trident, NX_SPCTRL_SPCSO + 3)) & 0x10) == 0)
-			linux_outl(trident->spdif_bits, TRID_REG(trident, NX_SPCSTATUS));
+			outl(trident->spdif_bits, TRID_REG(trident, NX_SPCSTATUS));
 	} else {
 		if (trident->spdif == NULL)
-			linux_outl(trident->spdif_bits, TRID_REG(trident, SI_SPDIF_CS));
+			outl(trident->spdif_bits, TRID_REG(trident, SI_SPDIF_CS));
 	}
 	spin_unlock_irq(&trident->reg_lock);
 	return change;
@@ -2599,9 +2599,9 @@ static int snd_trident_spdif_stream_put(struct snd_kcontrol *kcontrol,
 	trident->spdif_pcm_bits = val;
 	if (trident->spdif != NULL) {
 		if (trident->device != TRIDENT_DEVICE_ID_SI7018) {
-			linux_outl(trident->spdif_pcm_bits, TRID_REG(trident, NX_SPCSTATUS));
+			outl(trident->spdif_pcm_bits, TRID_REG(trident, NX_SPCSTATUS));
 		} else {
-			linux_outl(trident->spdif_bits, TRID_REG(trident, SI_SPDIF_CS));
+			outl(trident->spdif_bits, TRID_REG(trident, SI_SPDIF_CS));
 		}
 	}
 	spin_unlock_irq(&trident->reg_lock);
@@ -2653,7 +2653,7 @@ static int snd_trident_ac97_control_put(struct snd_kcontrol *kcontrol,
 		val |= 1 << kcontrol->private_value;
 	change = val != trident->ac97_ctrl;
 	trident->ac97_ctrl = val;
-	linux_outl(trident->ac97_ctrl = val, TRID_REG(trident, NX_ACR0_AC97_COM_STAT));
+	outl(trident->ac97_ctrl = val, TRID_REG(trident, NX_ACR0_AC97_COM_STAT));
 	spin_unlock_irq(&trident->reg_lock);
 	return change;
 }
@@ -2711,7 +2711,7 @@ static int snd_trident_vol_control_put(struct snd_kcontrol *kcontrol,
 	val |= ((255 - (ucontrol->value.integer.value[0] & 0xff)) |
 	        ((255 - (ucontrol->value.integer.value[1] & 0xff)) << 8)) << kcontrol->private_value;
 	change = val != trident->musicvol_wavevol;
-	linux_outl(trident->musicvol_wavevol = val, TRID_REG(trident, T4D_MUSICVOL_WAVEVOL));
+	outl(trident->musicvol_wavevol = val, TRID_REG(trident, T4D_MUSICVOL_WAVEVOL));
 	spin_unlock_irq(&trident->reg_lock);
 	return change;
 }
@@ -3120,9 +3120,9 @@ static int snd_trident_mixer(struct snd_trident *trident, int pcm_spdif_device)
 			goto __out;
 		kctl->put(kctl, uctl);
 #endif
-		linux_outl(trident->musicvol_wavevol = 0x00000000, TRID_REG(trident, T4D_MUSICVOL_WAVEVOL));
+		outl(trident->musicvol_wavevol = 0x00000000, TRID_REG(trident, T4D_MUSICVOL_WAVEVOL));
 	} else {
-		linux_outl(trident->musicvol_wavevol = 0xffff0000, TRID_REG(trident, T4D_MUSICVOL_WAVEVOL));
+		outl(trident->musicvol_wavevol = 0xffff0000, TRID_REG(trident, T4D_MUSICVOL_WAVEVOL));
 	}
 
 	for (idx = 0; idx < 32; idx++) {
@@ -3241,7 +3241,7 @@ static void snd_trident_gameport_trigger(struct gameport *gameport)
 
 	if (snd_BUG_ON(!chip))
 		return;
-	linux_outb(0xff, TRID_REG(chip, GAMEPORT_LEGACY));
+	outb(0xff, TRID_REG(chip, GAMEPORT_LEGACY));
 }
 
 static int snd_trident_gameport_cooked_read(struct gameport *gameport, int *axes, int *buttons)
@@ -3271,11 +3271,11 @@ static int snd_trident_gameport_open(struct gameport *gameport, int mode)
 
 	switch (mode) {
 		case GAMEPORT_MODE_COOKED:
-			linux_outb(GAMEPORT_MODE_ADC, TRID_REG(chip, GAMEPORT_GCR));
+			outb(GAMEPORT_MODE_ADC, TRID_REG(chip, GAMEPORT_GCR));
 			msleep(20);
 			return 0;
 		case GAMEPORT_MODE_RAW:
-			linux_outb(0, TRID_REG(chip, GAMEPORT_GCR));
+			outb(0, TRID_REG(chip, GAMEPORT_GCR));
 			return 0;
 		default:
 			return -1;
@@ -3346,14 +3346,14 @@ static int snd_trident_sis_reset(struct snd_trident *trident)
 	pci_write_config_byte(trident->pci, 0x46, 0x00);
 	udelay(100);
 	/* disable AC97 GPIO interrupt */
-	linux_outb(0x00, TRID_REG(trident, SI_AC97_GPIO));
+	outb(0x00, TRID_REG(trident, SI_AC97_GPIO));
 	/* initialize serial interface, force cold reset */
 	i = PCMOUT|SURROUT|CENTEROUT|LFEOUT|SECONDARY_ID|COLD_RESET;
-	linux_outl(i, TRID_REG(trident, SI_SERIAL_INTF_CTRL));
+	outl(i, TRID_REG(trident, SI_SERIAL_INTF_CTRL));
 	udelay(1000);
 	/* remove cold reset */
 	i &= ~COLD_RESET;
-	linux_outl(i, TRID_REG(trident, SI_SERIAL_INTF_CTRL));
+	outl(i, TRID_REG(trident, SI_SERIAL_INTF_CTRL));
 	udelay(2000);
 	/* wait, until the codec is ready */
 	end_time = (jiffies + (HZ * 3) / 4) + 1;
@@ -3379,7 +3379,7 @@ static int snd_trident_sis_reset(struct snd_trident *trident)
 		do_delay(trident);
 	} while (time_after_eq(end_time, jiffies));
 	/* enable 64 channel mode */
-	linux_outl(BANK_B_EN, TRID_REG(trident, T4D_LFO_GC_CIR));
+	outl(BANK_B_EN, TRID_REG(trident, T4D_LFO_GC_CIR));
 	return 0;
 }
 
@@ -3501,10 +3501,10 @@ static int snd_trident_tlb_alloc(struct snd_trident *trident)
 
 static void snd_trident_stop_all_voices(struct snd_trident *trident)
 {
-	linux_outl(0xffffffff, TRID_REG(trident, T4D_STOP_A));
-	linux_outl(0xffffffff, TRID_REG(trident, T4D_STOP_B));
-	linux_outl(0, TRID_REG(trident, T4D_AINTEN_A));
-	linux_outl(0, TRID_REG(trident, T4D_AINTEN_B));
+	outl(0xffffffff, TRID_REG(trident, T4D_STOP_A));
+	outl(0xffffffff, TRID_REG(trident, T4D_STOP_B));
+	outl(0, TRID_REG(trident, T4D_AINTEN_A));
+	outl(0, TRID_REG(trident, T4D_AINTEN_B));
 }
 
 static int snd_trident_4d_dx_init(struct snd_trident *trident)
@@ -3522,12 +3522,12 @@ static int snd_trident_4d_dx_init(struct snd_trident *trident)
 	udelay(100);
 	
 	/* warm reset of the AC'97 codec */
-	linux_outl(0x00000001, TRID_REG(trident, DX_ACR2_AC97_COM_STAT));
+	outl(0x00000001, TRID_REG(trident, DX_ACR2_AC97_COM_STAT));
 	udelay(100);
-	linux_outl(0x00000000, TRID_REG(trident, DX_ACR2_AC97_COM_STAT));
+	outl(0x00000000, TRID_REG(trident, DX_ACR2_AC97_COM_STAT));
 	/* DAC on, disable SB IRQ and try to force ADC valid signal */
 	trident->ac97_ctrl = 0x0000004a;
-	linux_outl(trident->ac97_ctrl, TRID_REG(trident, DX_ACR2_AC97_COM_STAT));
+	outl(trident->ac97_ctrl, TRID_REG(trident, DX_ACR2_AC97_COM_STAT));
 	/* wait, until the codec is ready */
 	end_time = (jiffies + (HZ * 3) / 4) + 1;
 	do {
@@ -3563,9 +3563,9 @@ static int snd_trident_4d_nx_init(struct snd_trident *trident)
 	udelay(100);
 
 	/* warm reset of the AC'97 codec */
-	linux_outl(0x00000001, TRID_REG(trident, NX_ACR0_AC97_COM_STAT));
+	outl(0x00000001, TRID_REG(trident, NX_ACR0_AC97_COM_STAT));
 	udelay(100);
-	linux_outl(0x00000000, TRID_REG(trident, NX_ACR0_AC97_COM_STAT));
+	outl(0x00000000, TRID_REG(trident, NX_ACR0_AC97_COM_STAT));
 	/* wait, until the codec is ready */
 	end_time = (jiffies + (HZ * 3) / 4) + 1;
 	do {
@@ -3580,9 +3580,9 @@ static int snd_trident_4d_nx_init(struct snd_trident *trident)
  __nx_ok:
 	/* DAC on */
 	trident->ac97_ctrl = 0x00000002;
-	linux_outl(trident->ac97_ctrl, TRID_REG(trident, NX_ACR0_AC97_COM_STAT));
+	outl(trident->ac97_ctrl, TRID_REG(trident, NX_ACR0_AC97_COM_STAT));
 	/* disable SB IRQ */
-	linux_outl(NX_SB_IRQ_DISABLE, TRID_REG(trident, T4D_MISCINT));
+	outl(NX_SB_IRQ_DISABLE, TRID_REG(trident, T4D_MISCINT));
 
 	snd_trident_stop_all_voices(trident);
 
@@ -3591,13 +3591,13 @@ static int snd_trident_4d_nx_init(struct snd_trident *trident)
 		/* enable virtual addressing via TLB */
 		i = trident->tlb.entries_dmaaddr;
 		i |= 0x00000001;
-		linux_outl(i, TRID_REG(trident, NX_TLBC));
+		outl(i, TRID_REG(trident, NX_TLBC));
 	} else {
-		linux_outl(0, TRID_REG(trident, NX_TLBC));
+		outl(0, TRID_REG(trident, NX_TLBC));
 	}
 	/* initialize S/PDIF */
-	linux_outl(trident->spdif_bits, TRID_REG(trident, NX_SPCSTATUS));
-	linux_outb(trident->spdif_ctrl, TRID_REG(trident, NX_SPCTRL_SPCSO + 3));
+	outl(trident->spdif_bits, TRID_REG(trident, NX_SPCSTATUS));
+	outb(trident->spdif_ctrl, TRID_REG(trident, NX_SPCTRL_SPCSO + 3));
 
 	return 0;
 }
@@ -3615,7 +3615,7 @@ static int snd_trident_sis_init(struct snd_trident *trident)
 	snd_trident_stop_all_voices(trident);
 
 	/* initialize S/PDIF */
-	linux_outl(trident->spdif_bits, TRID_REG(trident, SI_SPDIF_CS));
+	outl(trident->spdif_bits, TRID_REG(trident, SI_SPDIF_CS));
 
 	return 0;
 }
@@ -3632,7 +3632,7 @@ static unsigned char trident_hw_fm_read (void *private_data, unsigned int idx) {
 
 static void trident_hw_fm_write (void *private_data, unsigned int idx, unsigned char data) {
   struct snd_trident *trident = (struct snd_trident *)private_data;
-  linux_outb(data, TRID_REG(trident, 0x10 + idx));
+  outb(data, TRID_REG(trident, 0x10 + idx));
 }
 
 extern uint16_t main_hw_mpuport;
@@ -3647,7 +3647,7 @@ static unsigned char trident_hw_mpu_read (void *private_data, unsigned int idx) 
 
 static void trident_hw_mpu_write (void *private_data, unsigned int idx, unsigned char data) {
   struct snd_trident *trident = (struct snd_trident *)private_data;
-  linux_outb(data, TRID_REG(trident, T4D_MPU401_BASE + idx));
+  outb(data, TRID_REG(trident, T4D_MPU401_BASE + idx));
 }
 
 /*---------------------------------------------------------------------------
@@ -3840,14 +3840,14 @@ int snd_trident_free(struct snd_trident *trident)
 	snd_trident_disable_eso(trident);
 	// Disable S/PDIF out
 	if (trident->device == TRIDENT_DEVICE_ID_NX)
-		linux_outb(0x00, TRID_REG(trident, NX_SPCTRL_SPCSO + 3));
+		outb(0x00, TRID_REG(trident, NX_SPCTRL_SPCSO + 3));
 	else if (trident->device == TRIDENT_DEVICE_ID_SI7018) {
-		linux_outl(0, TRID_REG(trident, SI_SERIAL_INTF_CTRL));
+		outl(0, TRID_REG(trident, SI_SERIAL_INTF_CTRL));
 	}
 	if (trident->irq >= 0)
 		free_irq(trident->irq, trident);
 	if (trident->tlb.buffer.area) {
-		linux_outl(0, TRID_REG(trident, NX_TLBC));
+		outl(0, TRID_REG(trident, NX_TLBC));
 		snd_util_memhdr_free(trident->tlb.memhdr);
 		if (trident->tlb.silent_page.area)
 			snd_dma_free_pages(&trident->tlb.silent_page);
@@ -3895,7 +3895,7 @@ irqreturn_t snd_trident_interrupt(int irq, void *dev_id)
 		chn_int = inl(TRID_REG(trident, T4D_AINT_A));
 		if (chn_int == 0)
 			goto __skip1;
-		linux_outl(chn_int, TRID_REG(trident, T4D_AINT_A));	/* ack */
+		outl(chn_int, TRID_REG(trident, T4D_AINT_A));	/* ack */
 	      __skip1:
 		chn_int = inl(TRID_REG(trident, T4D_AINT_B));
 		if (chn_int == 0)
@@ -3906,7 +3906,7 @@ irqreturn_t snd_trident_interrupt(int irq, void *dev_id)
 				continue;
 			voice = &trident->synth.voices[channel];
 			if (!voice->pcm || voice->substream == NULL) {
-				linux_outl(mask, TRID_REG(trident, T4D_STOP_B));
+				outl(mask, TRID_REG(trident, T4D_STOP_B));
 				continue;
 			}
 			delta = (int)stimer - (int)voice->stimer;
@@ -3962,7 +3962,7 @@ irqreturn_t snd_trident_interrupt(int irq, void *dev_id)
 			spin_lock(&trident->reg_lock);
 #endif
 		}
-		linux_outl(chn_int, TRID_REG(trident, T4D_AINT_B));	/* ack */
+		outl(chn_int, TRID_REG(trident, T4D_AINT_B));	/* ack */
 	      __skip2:
 		spin_unlock(&trident->reg_lock);
 	}
@@ -3973,7 +3973,7 @@ irqreturn_t snd_trident_interrupt(int irq, void *dev_id)
 			inb(TRID_REG(trident, T4D_MPUR0));
 		}
 	}
-	// linux_outl((ST_TARGET_REACHED | MIXER_OVERFLOW | MIXER_UNDERFLOW), TRID_REG(trident, T4D_MISCINT));
+	// outl((ST_TARGET_REACHED | MIXER_OVERFLOW | MIXER_UNDERFLOW), TRID_REG(trident, T4D_MISCINT));
 	return IRQ_HANDLED;
 }
 
@@ -4060,14 +4060,14 @@ static void snd_trident_clear_voices(struct snd_trident * trident, unsigned shor
 	for (i = v_min; i <= v_max; i++)
 		mask[i >> 5] |= 1 << (i & 0x1f);
 	if (mask[0]) {
-		linux_outl(mask[0], TRID_REG(trident, T4D_STOP_A));
+		outl(mask[0], TRID_REG(trident, T4D_STOP_A));
 		val = inl(TRID_REG(trident, T4D_AINTEN_A));
-		linux_outl(val & ~mask[0], TRID_REG(trident, T4D_AINTEN_A));
+		outl(val & ~mask[0], TRID_REG(trident, T4D_AINTEN_A));
 	}
 	if (mask[1]) {
-		linux_outl(mask[1], TRID_REG(trident, T4D_STOP_B));
+		outl(mask[1], TRID_REG(trident, T4D_STOP_B));
 		val = inl(TRID_REG(trident, T4D_AINTEN_B));
-		linux_outl(val & ~mask[1], TRID_REG(trident, T4D_AINTEN_B));
+		outl(val & ~mask[1], TRID_REG(trident, T4D_AINTEN_B));
 	}
 }
 
@@ -4109,7 +4109,7 @@ static int snd_trident_resume(struct device *dev)
 	snd_ac97_resume(trident->ac97_sec);
 
 	/* restore some registers */
-	linux_outl(trident->musicvol_wavevol, TRID_REG(trident, T4D_MUSICVOL_WAVEVOL));
+	outl(trident->musicvol_wavevol, TRID_REG(trident, T4D_MUSICVOL_WAVEVOL));
 
 	snd_trident_enable_eso(trident);
 
