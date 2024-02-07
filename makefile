@@ -3,11 +3,12 @@ CC := i586-pc-msdosdjgpp-gcc
 CXX := i586-pc-msdosdjgpp-g++
 DEBUG ?= 0
 YSBEMU_CONFIG_UTIL ?= 0
+USE_LINUX_PCI ?= 0
 
 VERSION ?= $(shell git describe --tags)
 
 INCLUDES := -I./mpxplay -I./sbemu -I./drivers/include
-DEFINES := -D__DOS__ -DSBEMU -DDEBUG=$(DEBUG) -DYSBEMU_CONFIG_UTIL=$(YSBEMU_CONFIG_UTIL) -DMAIN_SBEMU_VER=\"$(VERSION)\"
+DEFINES := -D__DOS__ -DSBEMU -DDEBUG=$(DEBUG) -DYSBEMU_CONFIG_UTIL=$(YSBEMU_CONFIG_UTIL) -DUSE_LINUX_PCI=$(USE_LINUX_PCI) -DMAIN_SBEMU_VER=\"$(VERSION)\"
 CFLAGS := -fcommon -march=i386 -Os $(INCLUDES) $(DEFINES)
 LDFLAGS := -lstdc++ -lm
 
@@ -87,13 +88,37 @@ SBEMU_SRC := sbemu/dbopl.cpp \
 	     utility.c \
 	     hdpmipt.c \
 
-SRC := $(CTXFI_SRC) $(EMU10K1_SRC) $(TRIDENT_SRC) $(CARDS_SRC) $(SBEMU_SRC)
+PCI_SRC = drivers/pci/kernel.c \
+          drivers/pci/bitmap.c \
+          drivers/pci/find_bit.c \
+          drivers/pci/klist.c \
+          drivers/pci/probe.c \
+          drivers/pci/bus.c \
+          drivers/pci/resource.c \
+          drivers/pci/setup-res.c \
+          drivers/pci/setup-bus.c \
+          drivers/pci/pci.c \
+          drivers/pci/access.c \
+          drivers/pci/host-bridge.c \
+          drivers/pci/search.c \
+          drivers/pci/direct.c \
+          drivers/pci/bus_numa.c \
+          drivers/pci/common.c \
+          drivers/pci/pcimain.c \
+
+LINUX_DRIVERS_SRC := $(PCI_SRC) $(CTXFI_SRC) $(EMU10K1_SRC) $(TRIDENT_SRC)
+SRC := $(LINUX_DRIVERS_SRC) $(CARDS_SRC) $(SBEMU_SRC)
 OBJS := $(patsubst %.cpp,output/%.o,$(patsubst %.c,output/%.o,$(SRC)))
 
 $(TARGET): $(OBJS)
 	@mkdir -p $(dir $@)
 	$(SILENTMSG) "LINK\t$@\n"
 	$(SILENTCMD)$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+output/drivers/pci/%.o: drivers/pci/%.c
+	@mkdir -p $(dir $@)
+	$(SILENTMSG) "CC\t$@\n"
+	$(SILENTCMD)$(CC) $(CFLAGS) -DUSE_LINUX_PCIBIOS=1 -c $< -o $@
 
 output/%.o: %.c
 	@mkdir -p $(dir $@)
