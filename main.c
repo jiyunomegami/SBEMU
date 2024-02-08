@@ -491,7 +491,9 @@ enum EOption
     OPT_MPUADDR,
     OPT_MPUCOMPORT,
     OPT_COMPORTLIST,
+#if MPU_DEBUG
     OPT_MDBG,
+#endif
 
     OPT_COUNT,
 };
