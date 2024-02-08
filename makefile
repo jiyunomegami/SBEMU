@@ -3,7 +3,7 @@ CC := i586-pc-msdosdjgpp-gcc
 CXX := i586-pc-msdosdjgpp-g++
 DEBUG ?= 0
 YSBEMU_CONFIG_UTIL ?= 0
-USE_LINUX_PCI ?= 0
+USE_LINUX_PCI ?= 1
 
 VERSION ?= $(shell git describe --tags)
 
