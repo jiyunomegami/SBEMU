@@ -85,8 +85,6 @@ pciwalk_cb (struct pci_dev *dev, void *up)
     printk("bus]");
   }
   printk("\n");
-  if (dev->vendor==0x1073 && dev->device==0x0012) { // YAMAHA YMF754
-  }
   return 0;
 }
 
@@ -96,7 +94,6 @@ extern int pci_direct_probe (void);
 
 int
 linux_pcimain () {
-  //printk("skipping pcimain??\n");  return 0;
   if (pci_direct_probe()) {
     pcibios_scan_root(0);
   }
@@ -106,8 +103,7 @@ linux_pcimain () {
   struct pcitree tree;
   tree.level = 0;
   tree.parent = NULL;
-  printk("*** PCI TREE ************\n");
-  //pciwalk_cb(bus->self, &tree);
+  printk("*** PCI TREE ***\n");
   pci_walk_bus(bus, pciwalk_cb, &tree);
 
   return 0;

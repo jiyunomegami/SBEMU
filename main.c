@@ -440,6 +440,9 @@ struct MAIN_OPT
 {
     "/?", "Show this help screen", FALSE, 0,
     "/DBG", "Debug output (0=console, 1=COM1, 2=COM2, 3=COM3, 4=COM4, otherwise base address)", 0, 0,
+#if USE_LINUX_PCI
+    "/PCI", "List PCI devices", 0, 0,
+#endif
 
     "/A", "IO address (220 or 240) [*]", 0x220, 0,
     "/I", "IRQ number (5 or 7 or 9) [*]", 7, 0,
@@ -472,6 +475,9 @@ enum EOption
 {
     OPT_Help,
     OPT_DEBUG_OUTPUT,
+#if USE_LINUX_PCI
+    OPT_PCI,
+#endif
 
     OPT_ADDR,
     OPT_IRQ,
@@ -757,7 +763,12 @@ int main(int argc, char* argv[])
         MAIN_Options[OPT_HDMA].value = MAIN_Options[OPT_DMA].value; //16 bit transfer through 8 bit dma
 
 #if USE_LINUX_PCI
-    linux_pcimain();
+    if (MAIN_Options[OPT_PCI].value) {
+      linux_pcimain();
+      if (MAIN_Options[OPT_PCI].value == 2) {
+        return 0;
+      }
+    }
 #endif
 #if YSBEMU_CONFIG_UTIL
     printf("YSBEMU CONFIGURATION UTILITY\n");
