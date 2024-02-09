@@ -1159,12 +1159,12 @@ struct pci_dev {
 #define dev_alert(dev,...) printk(__VA_ARGS__)
 #define dev_err(dev,...) printk(__VA_ARGS__)
 
-#if defined(DEBUG) && DEBUG > 1
+#if PCI_DEBUG
 #define dev_dbg(dev,...) printk(__VA_ARGS__)
 #define dev_info(dev,...) printk(__VA_ARGS__)
 #else
-#define dev_dbg(dev,...)
-#define dev_info(dev,...)
+#define dev_dbg(dev,...) //printk(__VA_ARGS__)
+#define dev_info(dev,...) //printk(__VA_ARGS__)
 #endif
 
 #define dev_WARN_ONCE(dev, condition, format, arg...) \
@@ -3808,5 +3808,8 @@ int pci_bus_write_config_word(struct pci_bus *bus, unsigned int devfn,
 			      int where, u16 val);
 int pci_bus_write_config_dword(struct pci_bus *bus, unsigned int devfn,
 			       int where, u32 val);
+
+bool pci_enable_writes ();
+void pci_disable_writes ();
 
 #endif

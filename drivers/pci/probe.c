@@ -210,6 +210,7 @@ int __pci_read_base(struct pci_dev *dev, enum pci_bar_type type,
 
 	mask = type ? PCI_ROM_ADDRESS_MASK : ~0;
 
+#if 0
 	/* No printks while decoding is disabled! */
 	if (!dev->mmio_always_on) {
 		pci_read_config_word(dev, PCI_COMMAND, &orig_cmd);
@@ -218,6 +219,7 @@ int __pci_read_base(struct pci_dev *dev, enum pci_bar_type type,
 				orig_cmd & ~PCI_COMMAND_DECODE_ENABLE);
 		}
 	}
+#endif
 
 	res->name = pci_name(dev);
 
@@ -273,8 +275,10 @@ int __pci_read_base(struct pci_dev *dev, enum pci_bar_type type,
 		mask64 |= ((u64)~0 << 32);
 	}
 
+#if 0
 	if (!dev->mmio_always_on && (orig_cmd & PCI_COMMAND_DECODE_ENABLE))
 		pci_write_config_word(dev, PCI_COMMAND, orig_cmd);
+#endif
 
 	if (!sz64) {
           goto fail;
@@ -359,6 +363,7 @@ static void pci_read_bases(struct pci_dev *dev, unsigned int howmany, int rom)
 	if (dev->is_virtfn)
 		return;
 
+	bool was_enabled = pci_enable_writes();
 	for (pos = 0; pos < howmany; pos++) {
 		struct resource *res = &dev->resource[pos];
 		reg = PCI_BASE_ADDRESS_0 + (pos << 2);
@@ -372,6 +377,8 @@ static void pci_read_bases(struct pci_dev *dev, unsigned int howmany, int rom)
 				IORESOURCE_READONLY | IORESOURCE_SIZEALIGN;
 		__pci_read_base(dev, pci_bar_mem32, res, rom);
 	}
+	if (!was_enabled)
+		pci_disable_writes();
 }
 
 static void pci_read_bridge_windows(struct pci_dev *bridge)
@@ -1336,8 +1343,10 @@ static int pci_scan_bridge_extend(struct pci_bus *bus, struct pci_dev *dev,
 	 * bus errors in some architectures.
 	 */
 	pci_read_config_word(dev, PCI_BRIDGE_CONTROL, &bctl);
+#if 0
 	pci_write_config_word(dev, PCI_BRIDGE_CONTROL,
 			      bctl & ~PCI_BRIDGE_CTL_MASTER_ABORT);
+#endif
 
 	pci_enable_crs(dev);
 
@@ -1825,6 +1834,8 @@ static u8 pci_hdr_type(struct pci_dev *dev)
  */
 static int pci_intx_mask_broken(struct pci_dev *dev)
 {
+  // Too late to do this in DOS
+#if 0
 	u16 orig, toggle, new;
 
 	pci_read_config_word(dev, PCI_COMMAND, &orig);
@@ -1841,6 +1852,7 @@ static int pci_intx_mask_broken(struct pci_dev *dev)
 	 */
 	if (new != toggle)
 		return 1;
+#endif
 	return 0;
 }
 
@@ -1947,6 +1959,7 @@ int pci_setup_device(struct pci_dev *dev)
 	/* Device class may be changed after fixup */
 	class = dev->class >> 8;
 
+#if 0
 	if (dev->non_compliant_bars && !dev->mmio_always_on) {
 		pci_read_config_word(dev, PCI_COMMAND, &cmd);
 		if (cmd & (PCI_COMMAND_IO | PCI_COMMAND_MEMORY)) {
@@ -1956,6 +1969,7 @@ int pci_setup_device(struct pci_dev *dev)
 			pci_write_config_word(dev, PCI_COMMAND, cmd);
 		}
 	}
+#endif
 
 	dev->broken_intx_masking = pci_intx_mask_broken(dev);
 
@@ -2050,8 +2064,6 @@ int pci_setup_device(struct pci_dev *dev)
 			dev->class, dev->hdr_type);
 		dev->class = PCI_CLASS_NOT_DEFINED << 8;
 	}
-        //printk("XXX enabling device %4.4X:%4.4X\n", dev->vendor, dev->device);
-        //pci_enable_device(dev);
         //pci_dump_device(dev);
   
 	/* We found a fine healthy device, go go go... */

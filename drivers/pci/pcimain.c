@@ -94,10 +94,12 @@ extern int pci_direct_probe (void);
 
 int
 linux_pcimain () {
-  if (pci_direct_probe()) {
-    pcibios_scan_root(0);
+  pci_enable_writes();
+  if (!pci_direct_probe()) {
+    printk("pci_direct_probe failed\n");
+    return 1;
   }
-
+  pcibios_scan_root(0);
   struct pci_dev *dev = NULL;
   struct pci_bus *bus = root_bus;
   struct pcitree tree;

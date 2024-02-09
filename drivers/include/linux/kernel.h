@@ -259,7 +259,25 @@ struct irq_affinity_desc {
 // linux/kernel.h:
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
-#if defined(DEBUG) && DEBUG > 1
+#ifndef PCI_DEBUG
+#define PCI_DEBUG 0
+#endif
+
+// linux/printk.h:
+#define KERN_INFO "INFO"
+#define KERN_DEBUG "DEBUG"
+#define KERN_ERR "ERROR: "
+
+#define PRINTK_USES_PRINTF 0
+#if PRINTK_USES_PRINTF
+#define printk(...) printf(__VA_ARGS__)
+#else
+#define printk(...) DBG_Logi(__VA_ARGS__)
+#endif
+#define snd_printk(...) printk(__VA_ARGS__)
+#define panic(...) printk("PANIC " __VA_ARGS__)
+
+#if PCI_DEBUG
 #define pr_info_once(...) printk(__VA_ARGS__)
 #define pr_info(...) printk(__VA_ARGS__)
 #else
@@ -272,7 +290,6 @@ struct irq_affinity_desc {
 
 #define HERE() printk("%s:%d\n", __FILE__, __LINE__)
 
-// linux/printk.h:
 enum {
         DUMP_PREFIX_NONE,
         DUMP_PREFIX_ADDRESS,
@@ -281,13 +298,6 @@ enum {
 extern void print_hex_dump(const char *level, const char *prefix_str,
                            int prefix_type, int rowsize, int groupsize,
                            const void *buf, size_t len, bool ascii);
-#define KERN_INFO "INFO"
-#define KERN_DEBUG "DEBUG"
-#define KERN_ERR "ERROR: "
-
-#define printk(...) DBG_Logi(__VA_ARGS__)
-#define snd_printk(...) DBG_Logi(__VA_ARGS__)
-#define panic(...) DBG_Logi("PANIC " __VA_ARGS__)
 
 #define dump_stack(x) printk("dump_stack\n")
 

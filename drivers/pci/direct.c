@@ -26,6 +26,16 @@ EXPORT_SYMBOL(pci_mem_start);
 
 //#define DBG(x) x
 
+static bool pci_writes_enabled = true;
+bool pci_enable_writes () {
+  bool x = pci_writes_enabled;
+  pci_writes_enabled = true;
+  return x;
+}
+void pci_disable_writes () {
+  pci_writes_enabled = false;
+}
+
 /*
  * Functions for accessing PCI base (first 256 bytes) and extended
  * (4096 bytes per PCI function) configuration space with type 1
@@ -74,6 +84,7 @@ static int pci_conf1_write(unsigned int seg, unsigned int bus,
 {
 	unsigned long flags;
 
+	if (!pci_writes_enabled) return 0;
         //printk("%s:%d\n",__FILE__,__LINE__);
 	if (seg || (bus > 255) || (devfn > 255) || (reg > 4095))
 		return -EINVAL;
@@ -161,6 +172,7 @@ static int pci_conf2_write(unsigned int seg, unsigned int bus,
 	unsigned long flags;
 	int dev, fn;
 
+	if (!pci_writes_enabled) return 0;
 	WARN_ON(seg);
 	if ((bus > 255) || (devfn > 255) || (reg > 255)) 
 		return -EINVAL;
@@ -307,10 +319,8 @@ int __init pci_direct_probe(void)
 {
 	if ((pci_probe & PCI_PROBE_CONF1) == 0)
 		goto type2;
-#if 0
 	if (!request_region(0xCF8, 8, "PCI conf1"))
 		goto type2;
-#endif
 
 	if (pci_check_type1()) {
 		raw_pci_ops = &pci_direct_conf1;
@@ -320,14 +330,12 @@ int __init pci_direct_probe(void)
 	release_region(0xCF8, 8);
 
  type2:
-#if 0
 	if ((pci_probe & PCI_PROBE_CONF2) == 0)
 		return 0;
 	if (!request_region(0xCF8, 4, "PCI conf2"))
 		return 0;
 	if (!request_region(0xC000, 0x1000, "PCI conf2"))
 		goto fail2;
-#endif
 
 	if (pci_check_type2()) {
 		raw_pci_ops = &pci_direct_conf2;
