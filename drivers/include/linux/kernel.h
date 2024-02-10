@@ -213,6 +213,7 @@ extern struct cpumask __cpu_possible_mask;
 // IRQ stuff from linux/interrupt.h
 #define IRQ_NONE 0
 #define IRQ_HANDLED 1
+#define IRQ_RETVAL(x) ((x) ? IRQ_HANDLED : IRQ_NONE)
 
 typedef int irqreturn_t;
 #define IRQF_SHARED 0
@@ -280,9 +281,13 @@ struct irq_affinity_desc {
 #if PCI_DEBUG
 #define pr_info_once(...) printk(__VA_ARGS__)
 #define pr_info(...) printk(__VA_ARGS__)
+#define snd_printd(...) printk(__VA_ARGS__)
+#define snd_printdd(...) printk(__VA_ARGS__)
 #else
 #define pr_info_once(...) //printk(__VA_ARGS__)
 #define pr_info(...) //printk(__VA_ARGS__)
+#define snd_printd(...) //printk(__VA_ARGS__)
+#define snd_printdd(...) //printk(__VA_ARGS__)
 #endif
 #define pr_warn(...) printk(__VA_ARGS__)
 #define pr_err(...) printk(__VA_ARGS__)

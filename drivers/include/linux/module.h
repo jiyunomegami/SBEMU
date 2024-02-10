@@ -11,6 +11,7 @@
 #define KBUILD_MODNAME __FILE__
 
 #define MODULE_FIRMWARE(x) 0error = "MODULE_FIRMWARE is not supported"
+#define MODULE_DEVICE_TABLE(x, y)
 
 #endif
 

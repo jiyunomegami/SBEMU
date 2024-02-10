@@ -654,6 +654,8 @@ extern struct resource * __request_region(struct resource *,
         __request_region(&iomem_resource, (start), (n), (name), IORESOURCE_EXCLUSIVE)
 #define rename_region(region, newname) do { (region)->name = (newname); } while (0)
 
+#define devm_request_region(dev,start,n,name) request_region(start,n,name)
+
 extern int request_resource(struct resource *root, struct resource *new);
 extern struct resource *request_resource_conflict(struct resource *root, struct resource *new);
 

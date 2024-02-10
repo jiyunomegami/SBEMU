@@ -1111,6 +1111,26 @@ int snd_pcm_format_width(snd_pcm_format_t format)
 	return val;
 }
 
+/**
+ * snd_pcm_format_physical_width - return the physical bit-width of the format
+ * @format: the format to check
+ *
+ * Return: The physical bit-width of the format, or a negative error code
+ * if unknown format.
+ */
+static inline
+int snd_pcm_format_physical_width(snd_pcm_format_t format)
+{
+        int val;
+        if (!valid_format(format))
+                return -EINVAL;
+        //val = pcm_formats[(INT)format].phys;
+        if (format == SNDRV_PCM_FORMAT_S16_LE) val = 16;
+        if (!val)
+                return -EINVAL;
+        return val;
+}
+
 int snd_pcm_format_linear(snd_pcm_format_t format);
 int snd_pcm_format_little_endian(snd_pcm_format_t format);
 int snd_pcm_format_big_endian(snd_pcm_format_t format);

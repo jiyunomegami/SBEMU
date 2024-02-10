@@ -11,6 +11,7 @@ extern void pds_free(void *bufptr);
 #define kmalloc(size,flags) pds_malloc(size)
 #define kcalloc(n,size,flags) pds_calloc(n,size)
 #define kzalloc(size,flags) pds_zalloc(size) /* zero */
+#define devm_kzalloc(dev,size,flags) pds_zalloc(size) /* zero */
 #define kfree(p) pds_free((void *)p)
 #define vmalloc(size) pds_malloc(size)
 #define vfree(p) pds_free(p)
