@@ -52,6 +52,7 @@ extern one_sndcard_info CMI8X38_sndcard_info;
 extern one_sndcard_info CTXFI_sndcard_info;
 extern one_sndcard_info EMU10K1X_sndcard_info;
 extern one_sndcard_info TRIDENT_sndcard_info;
+extern one_sndcard_info ALS4000_sndcard_info;
 extern one_sndcard_info YMF_sndcard_info;
 extern one_sndcard_info YMFSB_sndcard_info;
 #ifndef SBEMU
@@ -115,6 +116,9 @@ static one_sndcard_info *all_sndcard_info[]={
 #endif
 #ifdef AU_CARDS_LINK_ES1371
  &ES1371_sndcard_info,
+#endif
+#ifdef AU_CARDS_LINK_ALS4000
+ &ALS4000_sndcard_info,
 #endif
 #ifdef AU_CARDS_LINK_TRIDENT
  &TRIDENT_sndcard_info,
