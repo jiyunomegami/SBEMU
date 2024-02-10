@@ -184,13 +184,17 @@ unsigned char au_cards_fallback_to_null = 0;
 
 static aucards_writedata_t aucards_writedata_func;
 
-void AU_init(struct mpxplay_audioout_info_s *aui)
+void AU_init(struct mpxplay_audioout_info_s *aui,struct mpxplay_audioout_info_s *fm_aui,struct mpxplay_audioout_info_s *mpu401_aui)
 {
+ struct mpxplay_audioout_info_s detectedaui;
  unsigned int error_code = MPXERROR_SNDCARD;
  one_sndcard_info **asip;
  char cardselectname[32]="";
  char sout[100];
 
+ fm_aui->fm = 0;
+ mpu401_aui->mpu401 = 0;
+ detectedaui.pcm = 0;
  aui->card_dmasize=aui->card_dma_buffer_size=MDma_get_max_pcmoutbufsize(aui,65535,4608,2,0);
 
 #ifndef MPXPLAY_GUI_CONSOLE
@@ -316,24 +320,46 @@ auinit_retry:
 #endif
      ){
       if(carddetect(aui,0)){
-       if(!(aui->card_controlbits&AUINFOS_CARDCNTRLBIT_TESTCARD)
 #ifdef SBEMU
- && (aui->card_select_index == 0 || aui->card_select_index == aui->card_test_index)
+        if (!(aui->card_controlbits&AUINFOS_CARDCNTRLBIT_TESTCARD)) {
+          if (aui->fm) {
+            if (!aui->card_select_index_fm || aui->card_select_index_fm == aui->card_test_index) {
+              *fm_aui = *aui;
+            }
+          }
+          if (aui->mpu401) {
+            if (!aui->card_select_index_mpu401 || aui->card_select_index_mpu401 == aui->card_test_index) {
+              *mpu401_aui = *aui;
+            }
+          }
+          if (!aui->card_select_index || aui->card_select_index == aui->card_test_index) {
+            detectedaui = *aui;
+            if (!aui->card_select_index_fm && !aui->card_select_index_mpu401) {
+              break;
+            }
+          }
+        }
+#else
+        if(!(aui->card_controlbits&AUINFOS_CARDCNTRLBIT_TESTCARD))
+          break;
 #endif
-)
-        break;
+       if (!(aui->pcm || aui->fm || aui->mpu401)) {
+        if(aui->card_handler->card_close)
+         aui->card_handler->card_close(aui);
+        aui->card_private_data=NULL;
+       }
 #ifdef SBEMU
         ++aui->card_test_index;
 #endif
-       if(aui->card_handler->card_close)
-        aui->card_handler->card_close(aui);
-       aui->card_private_data=NULL;
       }
      }
     }
     asip++;
     aui->card_handler=*asip;
    }while(aui->card_handler);
+   if (detectedaui.pcm) {
+    *aui = detectedaui;
+   }
   }
 
 #ifdef MPXPLAY_LINK_DLLLOAD
@@ -449,15 +475,23 @@ jump_back:
   aui->bits_card=16;
   aui->bytespersample_card=(aui->bits_card+7)/8;
  }
+ aui->card_irq=0xff;
+#ifndef SBEMU
  aui->card_port=aui->card_type=0xffff;
- aui->card_irq=aui->card_isa_dma=aui->card_isa_hidma=0xff;
+ aui->card_isa_dma=aui->card_isa_hidma=0xff;
  aui->freq_card=44100;
+#else
+ aui->freq_card=22050;
+#endif
  aui->chan_card=2;
 
  if(aui->card_handler->card_detect){
+  aui->pcm = 1;
+  aui->fm = aui->mpu401 = 0;
   if(aui->card_handler->card_detect(aui))
    ok=1;
   else{
+   aui->pcm = 0;
    if(!retry)
     return 0;
    funcbit_disable(outmode,OUTMODE_CONTROL_FILE_FLOATOUT);

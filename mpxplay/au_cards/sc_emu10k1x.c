@@ -28,10 +28,6 @@ struct emu10k1x_card_s {
   unsigned int irq;
 };
 
-extern void *main_hw_mpu_private_data;
-extern unsigned char (*main_hw_mpu_read)(void *private_data, unsigned int idx);
-extern void (*main_hw_mpu_write)(void *private_data, unsigned int idx, unsigned char data);
-
 extern unsigned char emu10k1x_mpu401_read (void *card, unsigned int idx);
 extern void emu10k1x_mpu401_write (void *card, unsigned int idx, unsigned char data);
 
@@ -132,11 +128,6 @@ static void EMU10K1X_close (struct mpxplay_audioout_info_s *aui)
 {
   struct emu10k1x_card_s *card = aui->card_private_data;
   if (card) {
-    if (main_hw_mpu_private_data == card->linux_snd_card) {
-      main_hw_mpu_read = NULL;
-      main_hw_mpu_write = NULL;
-      main_hw_mpu_private_data = NULL;
-    }
     if (card->linux_snd_card)
       snd_emu10k1x_free(card->linux_snd_card);
     if (card->pci_dev)
@@ -199,11 +190,9 @@ static int EMU10K1X_adetect (struct mpxplay_audioout_info_s *aui)
   aui->freq_card = 48000;
   err = make_snd_pcm_substream(aui, card, &card->pcm_substream);
   if (err) goto err_adetect;
+  aui->mpu401 = 1;
   emu10k1xdbg("EMU10K1X : Creative %s (%4.4X) IRQ %u\n", card->pci_dev->device_name, card->pci_dev->device_id, card->irq);
 
-  main_hw_mpu_private_data = card->linux_snd_card;
-  main_hw_mpu_read = emu10k1x_mpu401_read;
-  main_hw_mpu_write = emu10k1x_mpu401_write;
   return 1;
 
 err_adetect:
@@ -304,6 +293,18 @@ static int EMU10K1X_IRQRoutine (struct mpxplay_audioout_info_s *aui)
   return handled;
 }
 
+static uint8_t EMU10K1X_mpu401_read (struct mpxplay_audioout_info_s *aui, unsigned int idx)
+{
+  struct emu10k1x_card_s *card = aui->card_private_data;
+  return emu10k1x_mpu401_read(card, idx);
+}
+
+static void EMU10K1X_mpu401_write (struct mpxplay_audioout_info_s *aui, unsigned int idx, uint8_t data)
+{
+  struct emu10k1x_card_s *card = aui->card_private_data;
+  emu10k1x_mpu401_write(card, idx, data);
+}
+
 one_sndcard_info EMU10K1X_sndcard_info = {
  "EMU10K1X",
  SNDCARD_LOWLEVELHAND|SNDCARD_INT08_ALLOWED,
@@ -325,7 +326,12 @@ one_sndcard_info EMU10K1X_sndcard_info = {
 
  &EMU10K1X_writeMIXER,
  &EMU10K1X_readMIXER,
- &EMU10K1X_mixerset[0]
+ &EMU10K1X_mixerset[0],
+
+ NULL,
+ NULL,
+ &EMU10K1X_mpu401_write,
+ &EMU10K1X_mpu401_read,
 };
 
 #endif // AUCARDS_LINK_EMU10K1X

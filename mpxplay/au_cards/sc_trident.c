@@ -30,10 +30,6 @@ struct trident_card_s {
   unsigned int irq;
 };
 
-extern void *main_hw_mpu_private_data;
-extern unsigned char (*main_hw_mpu_read)(void *private_data, unsigned int idx);
-extern void (*main_hw_mpu_write)(void *private_data, unsigned int idx, unsigned char data);
-
 extern unsigned char trident_mpu401_read (void *card, unsigned int idx);
 extern void trident_mpu401_write (void *card, unsigned int idx, unsigned char data);
 
@@ -190,12 +186,7 @@ static void TRIDENT_close (struct mpxplay_audioout_info_s *aui)
 {
   struct trident_card_s *card = aui->card_private_data;
   if (card) {
-    if (main_hw_mpu_private_data == card->linux_snd_card) {
-      main_hw_mpu_read = NULL;
-      main_hw_mpu_write = NULL;
-      main_hw_mpu_private_data = NULL;
-    }
-    if (card->linux_snd_card)
+    if (card->trident)
       snd_trident_free(card->trident);
     if (card->pci_dev)
       pds_free(card->pci_dev);
@@ -265,6 +256,8 @@ static int TRIDENT_adetect (struct mpxplay_audioout_info_s *aui)
   if (err < 0)
     goto err_adetect;
 
+  aui->mpu401_port = trident->midi_port;
+  aui->mpu401 = 1;
   card->linux_snd_card->private_data = trident;
   card->trident = trident;
 
@@ -273,9 +266,6 @@ static int TRIDENT_adetect (struct mpxplay_audioout_info_s *aui)
   if (err) goto err_adetect;
   tridentdbg("TRIDENT : %s (%4.4X) IRQ %u\n", card->pci_dev->device_name, card->pci_dev->device_id, card->irq);
 
-  //main_hw_mpu_private_data = card->linux_snd_card;
-  //main_hw_mpu_read = trident_mpu401_read;
-  //main_hw_mpu_write = trident_mpu401_write;
   return 1;
 
 err_adetect:
@@ -401,7 +391,12 @@ one_sndcard_info TRIDENT_sndcard_info = {
 
  &TRIDENT_writeMIXER,
  &TRIDENT_readMIXER,
- &TRIDENT_mixerset[0]
+ &TRIDENT_mixerset[0],
+
+ NULL,
+ NULL,
+ &ioport_mpu401_write,
+ &ioport_mpu401_read,
 };
 
 #endif // AUCARDS_LINK_TRIDENT

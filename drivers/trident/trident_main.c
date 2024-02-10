@@ -3620,11 +3620,7 @@ static int snd_trident_sis_init(struct snd_trident *trident)
 	return 0;
 }
 
-extern uint16_t main_hw_fmport;
-extern void *main_hw_fm_private_data;
-extern unsigned char (*main_hw_fm_read)(void *private_data, unsigned int idx);
-extern void (*main_hw_fm_write)(void *private_data, unsigned int idx, unsigned char data);
-
+#if 0
 static unsigned char trident_hw_fm_read (void *private_data, unsigned int idx) {
   struct snd_trident *trident = (struct snd_trident *)private_data;
   return inb(TRID_REG(trident, 0x10 + idx));
@@ -3635,11 +3631,6 @@ static void trident_hw_fm_write (void *private_data, unsigned int idx, unsigned 
   outb(data, TRID_REG(trident, 0x10 + idx));
 }
 
-extern uint16_t main_hw_mpuport;
-extern void *main_hw_mpu_private_data;
-extern unsigned char (*main_hw_mpu_read)(void *private_data, unsigned int idx);
-extern void (*main_hw_mpu_write)(void *private_data, unsigned int idx, unsigned char data);
-
 static unsigned char trident_hw_mpu_read (void *private_data, unsigned int idx) {
   struct snd_trident *trident = (struct snd_trident *)private_data;
   return inb(TRID_REG(trident, T4D_MPU401_BASE + idx));
@@ -3649,6 +3640,7 @@ static void trident_hw_mpu_write (void *private_data, unsigned int idx, unsigned
   struct snd_trident *trident = (struct snd_trident *)private_data;
   outb(data, TRID_REG(trident, T4D_MPU401_BASE + idx));
 }
+#endif
 
 /*---------------------------------------------------------------------------
    snd_trident_create
@@ -3795,24 +3787,10 @@ int snd_trident_create(struct snd_card *card,
 
 	snd_trident_enable_eso(trident);
 
-        main_hw_mpuport = trident->midi_port;
-        //printk("midi_port: %4.4X\n", main_hw_mpuport);
 #if 0
         // Legacy ports
 	pci_write_config_byte(pci, 0x44, 3 << 2); // Adlib at 0x38C
-        main_hw_fmport = 0x38c;
 	pci_write_config_byte(pci, 0x44, 3 << 6); // MPU-401 at 0x300
-        main_hw_mpuport = 0x300;
-#endif
-#if 0
-        main_hw_mpu_private_data = trident;
-        main_hw_mpu_read = trident_hw_mpu_read;
-        main_hw_mpu_write = trident_hw_mpu_write;
-#endif
-#if 0
-        main_hw_fm_private_data = trident;
-        main_hw_fm_read = trident_hw_fm_read;
-        main_hw_fm_write = trident_hw_fm_write;
 #endif
 
 #if 0

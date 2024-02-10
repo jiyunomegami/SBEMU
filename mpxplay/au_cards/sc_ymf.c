@@ -3,11 +3,6 @@
 
 #include "au_cards.h"
 
-#ifdef SBEMU
-extern uint16_t main_hw_fmport;
-extern uint16_t main_hw_mpuport;
-#endif
-
 #ifdef SBEMU //AU_CARDS_LINK_YMF
 
 #include <string.h>
@@ -197,7 +192,6 @@ struct ymf_card_s {
   int start_count;
   int running;
   int update_pcm_vol;
-  int nopcm;
   int weird;
   uint16_t sbport;
   uint16_t fmport;
@@ -1010,10 +1004,7 @@ void YMF_mixer_init (struct ymf_card_s *card)
   // digital mixer setup
   for (unsigned int reg = 0x80; reg < 0xc0; reg += 4)
     snd_ymfpci_writel(card, reg, 0);
-  if (!card->nopcm && !card->weird) {
-    //snd_ymfpci_writel(card, YDSXGR_NATIVEDACOUTVOL, 0x3fff3fff);
-    //snd_ymfpci_writel(card, YDSXGR_BUF441OUTVOL, 0x3fff3fff);
-  }
+  //snd_ymfpci_writel(card, YDSXGR_NATIVEDACOUTVOL, 0x3fff3fff);
   //snd_ymfpci_writel(card, YDSXGR_BUF441OUTVOL, 0x3fff3fff);
   snd_ymfpci_writel(card, YDSXGR_ZVOUTVOL, 0x3fff3fff);
   snd_ymfpci_writel(card, YDSXGR_SPDIFOUTVOL, 0x3fff3fff);
@@ -1044,7 +1035,6 @@ static int YMF_adetect (struct mpxplay_audioout_info_s *aui)
     goto err_adetect;
 
   if (card->pci_dev->device_type == 0x754) {
-    //card->nopcm = 1;
     card->weird = 1;
   }
 #if YMF_DEBUG
@@ -1055,19 +1045,8 @@ static int YMF_adetect (struct mpxplay_audioout_info_s *aui)
   }
 #endif
 
-#if 0
-  aui->card_pci_dev = card->pci_dev;
-  aui->card_irq = card->irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
-  card->pci_iobase = pcibios_ReadConfig_Dword(card->pci_dev, 0x10);
-  card->pci_iobase &= 0xfffffff8;
-  card->iobase = pds_dpmi_map_physical_memory(card->pci_iobase, 0x8000);
-  snd_ymfpci_timer_start(aui);
-  au_cards_fallback_to_null = 1;
-  return 0;
-#endif
-
 #if YMF_ENABLE_PCM
-  if (card->nopcm) {
+  if (!aui->pcm) {
     if (aui->card_handler == &YMFSB_sndcard_info)
       return 0;
   } else {
@@ -1149,9 +1128,8 @@ try_724:
   }
 
   card->sbport = sbport;
-  //main_hw_sbport = sbport;
-  card->fmport = main_hw_fmport = fmport;
-  card->mpuport = main_hw_mpuport = mpuport;
+  card->fmport = fmport;
+  card->mpuport = mpuport;
 
   old_legacy_ctrl = pcibios_ReadConfig_Word(card->pci_dev, PCIR_DSXG_LEGACY);
   pcibios_WriteConfig_Word(card->pci_dev, PCIR_DSXG_LEGACY, legacy_ctrl);
@@ -1185,8 +1163,8 @@ try_724:
     if (!(fmsts1 == 0 && fmsts2 == 0xc0)) {
       YMF_printf("No OPL detected\n");
       card->sbport = 0;
-      card->fmport = main_hw_fmport = 0;
-      card->mpuport = main_hw_mpuport = 0;
+      card->fmport = 0;
+      card->mpuport = 0;
     } else {
       uint8_t fmsts3 = inp(fmport) & 0x06;
       //YMF_printf("fmsts3: %x\n", fmsts3);
@@ -1302,10 +1280,22 @@ try_724:
   dumped = 1;
 #endif
 
-  if (!(aui->card_select_index == 0 || aui->card_select_index == aui->card_test_index)) {
-    // Disable HW FM/MPU if another card was selected
-    main_hw_fmport = 0;
-    main_hw_mpuport = 0;
+  if (aui->card_select_index_fm == 0 || aui->card_select_index_fm == aui->card_test_index) {
+    aui->fm_port = card->fmport;
+    aui->fm = 1;
+  }
+  if (aui->card_select_index_mpu401 == 0 || aui->card_select_index_mpu401 == aui->card_test_index) {
+    aui->mpu401_port = card->mpuport;
+    aui->mpu401 = 1;
+  }
+  // Disable HW FM/MPU if another card was selected
+  if (!aui->card_select_index_fm && !(aui->card_select_index == 0 || aui->card_select_index == aui->card_test_index)) {
+    aui->fm_port = 0;
+    aui->fm = 0;
+  }
+  if (!aui->card_select_index_mpu401 && !(aui->card_select_index == 0 || aui->card_select_index == aui->card_test_index)) {
+    aui->mpu401_port = 0;
+    aui->mpu401 = 0;
   }
 
 #if YMF_ENABLE_PCM
@@ -1329,7 +1319,7 @@ static void YMF_card_info (struct mpxplay_audioout_info_s *aui)
 {
   struct ymf_card_s *card = aui->card_private_data;
   char sout[100];
-  sprintf(sout, "Yamaha DS-XG sound card %X FM %X MPU %X IRQ %d\n",
+  sprintf(sout, "Yamaha DS-XG sound card %X FM %X MPU %X IRQ %d",
           card->pci_dev->device_type, card->fmport, card->mpuport, card->irq);
   pds_textdisplay_printf(sout);
 }
@@ -1919,6 +1909,11 @@ one_sndcard_info YMF_sndcard_info={
   NULL,
   NULL,
   NULL,
+
+  &ioport_fm_write,
+  &ioport_fm_read,
+  &ioport_mpu401_write,
+  &ioport_mpu401_read,
 };
 
 #if YMF_ENABLE_PCM
@@ -1934,19 +1929,21 @@ one_sndcard_info YMFSB_sndcard_info={
   &YMF_stop,
   &YMF_close,
   &YMF_setrate,
-  //NULL,NULL,NULL,NULL,
 
   &MDma_writedata,
   &YMF_getbufpos,
   &MDma_clearbuf,
   &MDma_interrupt_monitor,
-  //NULL,NULL,NULL,NULL,
   &YMF_IRQRoutine,
 
   &YMF_writeMIXER,
   &YMF_readMIXER,
-  &YMF_mixerset[0]
-  //NULL,NULL,NULL
+  &YMF_mixerset[0],
+
+  &ioport_fm_write,
+  &ioport_fm_read,
+  &ioport_mpu401_write,
+  &ioport_mpu401_read,
 };
 #else
 one_sndcard_info YMFSB_sndcard_info={
@@ -1971,6 +1968,11 @@ one_sndcard_info YMFSB_sndcard_info={
   NULL,
   NULL,
   NULL,
+
+  &ioport_fm_write,
+  &ioport_fm_read,
+  &ioport_mpu401_write,
+  &ioport_mpu401_read,
 };
 #endif
 

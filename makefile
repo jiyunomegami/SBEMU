@@ -36,6 +36,7 @@ CARDS_SRC := mpxplay/au_cards/ac97_def.c \
 	     mpxplay/au_cards/au_cards.c \
 	     mpxplay/au_cards/dmairq.c \
 	     mpxplay/au_cards/pcibios.c \
+	     mpxplay/au_cards/ioport.c \
 	     mpxplay/au_cards/sc_e1371.c \
 	     mpxplay/au_cards/sc_ich.c \
 	     mpxplay/au_cards/sc_cmi.c \
@@ -43,11 +44,8 @@ CARDS_SRC := mpxplay/au_cards/ac97_def.c \
 	     mpxplay/au_cards/sc_sbl24.c \
 	     mpxplay/au_cards/sc_sbliv.c \
 	     mpxplay/au_cards/sc_via82.c \
-		 mpxplay/au_cards/sc_ctxfi.c \
-		 mpxplay/au_cards/sc_emu10k1x.c \
-		 mpxplay/au_cards/sc_trident.c \
-		 mpxplay/au_cards/sc_null.c \
-		 mpxplay/au_cards/sc_ymf.c \
+	     mpxplay/au_cards/sc_null.c \
+	     mpxplay/au_cards/sc_ymf.c \
 
 CTXFI_SRC := drivers/ctxfi/ctsrc.c \
              drivers/ctxfi/ctresource.c \
@@ -62,11 +60,19 @@ CTXFI_SRC := drivers/ctxfi/ctsrc.c \
              drivers/ctxfi/ctvmem.c \
              drivers/ctxfi/cthw20k1.c \
              drivers/ctxfi/cthw20k2.c \
+	     mpxplay/au_cards/sc_ctxfi.c \
 
 EMU10K1_SRC := drivers/emu10k1/emu10k1x.c \
+	       mpxplay/au_cards/sc_emu10k1x.c \
 
 TRIDENT_SRC := drivers/trident/trident_main.c \
                drivers/trident/trident_memory.c \
+	       mpxplay/au_cards/sc_trident.c \
+
+ALS4000_SRC := drivers/als4000/als4000.c \
+	       drivers/als4000/sb_common.c \
+	       drivers/als4000/sb_mixer.c \
+	       mpxplay/au_cards/sc_als4000.c \
 
 SBEMU_SRC := sbemu/dbopl.cpp \
 	     sbemu/opl3emu.cpp \
@@ -106,7 +112,7 @@ PCI_SRC = drivers/pci/kernel.c \
           drivers/pci/common.c \
           drivers/pci/pcimain.c \
 
-LINUX_DRIVERS_SRC := $(PCI_SRC) $(CTXFI_SRC) $(EMU10K1_SRC) $(TRIDENT_SRC)
+LINUX_DRIVERS_SRC := $(PCI_SRC) $(CTXFI_SRC) $(EMU10K1_SRC) $(TRIDENT_SRC) $(ALS4000_SRC)
 SRC := $(LINUX_DRIVERS_SRC) $(CARDS_SRC) $(SBEMU_SRC)
 OBJS := $(patsubst %.cpp,output/%.o,$(patsubst %.c,output/%.o,$(SRC)))
 
