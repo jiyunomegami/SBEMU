@@ -1395,7 +1395,8 @@ void MAIN_TSR_InstallationCheck()
             {
                 if((MAIN_Options[j].setcmd==MAIN_SETCMD_SET) && MAIN_Options[j].value != opt[j].value)
                 {
-                    printf("%s changed from %x to %x\n", MAIN_Options[j].option, opt[j].value, MAIN_Options[j].value);
+                    printf(opt_base(j) == 10 ? "%s changed from %d to %d\n" : "%s changed from %x to %x\n",
+                           MAIN_Options[j].option, opt[j].value, MAIN_Options[j].value);
                     opt[j].value = MAIN_Options[j].value;
                 }
             }
