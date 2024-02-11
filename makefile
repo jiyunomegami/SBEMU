@@ -74,6 +74,16 @@ ALS4000_SRC := drivers/als4000/als4000.c \
 	       drivers/als4000/sb_mixer.c \
 	       mpxplay/au_cards/sc_als4000.c \
 
+OXYGEN_SRC := drivers/oxygen/xonar_dg.c \
+	      drivers/oxygen/xonar_dg_mixer.c \
+	      drivers/oxygen/xonar_lib.c \
+	      drivers/oxygen/oxygen.c \
+	      drivers/oxygen/oxygen_io.c \
+	      drivers/oxygen/oxygen_lib.c \
+	      drivers/oxygen/oxygen_pcm.c \
+	      drivers/oxygen/oxygen_mixer.c \
+	      mpxplay/au_cards/sc_oxygen.c \
+
 SBEMU_SRC := sbemu/dbopl.cpp \
 	     sbemu/opl3emu.cpp \
 	     sbemu/pic.c \
@@ -112,7 +122,7 @@ PCI_SRC = drivers/pci/kernel.c \
           drivers/pci/common.c \
           drivers/pci/pcimain.c \
 
-LINUX_DRIVERS_SRC := $(PCI_SRC) $(CTXFI_SRC) $(EMU10K1_SRC) $(TRIDENT_SRC) $(ALS4000_SRC)
+LINUX_DRIVERS_SRC := $(PCI_SRC) $(CTXFI_SRC) $(EMU10K1_SRC) $(TRIDENT_SRC) $(ALS4000_SRC) $(OXYGEN_SRC)
 SRC := $(LINUX_DRIVERS_SRC) $(CARDS_SRC) $(SBEMU_SRC)
 OBJS := $(patsubst %.cpp,output/%.o,$(patsubst %.c,output/%.o,$(SRC)))
 

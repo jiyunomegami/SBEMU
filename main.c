@@ -395,7 +395,7 @@ struct MAIN_OPT
     "/PM", "Enable protected mode support (requires HDPMI32I)", TRUE, 0,
     "/RM", "Enable real mode support (requires QEMM or JEMM+QPIEMU)", TRUE, 0,
 
-    "/O", "Select output. 0: headphone, 1: speaker. Intel HDA only", 1, 0,
+    "/O", "Select output. 0: headphone, 1: speaker (Intel HDA) or S/PDIF (Xonar DG)", 1, 0,
     "/VOL", "Set master volume (0-9)", 7, 0,
 
     "/K", "Internal sample rate (22050 or 44100 or 48000)", 22050, 0,

@@ -52,6 +52,7 @@ make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct emu10k1x_car
   }
   substream->ops = &snd_emu10k1x_playback_ops;
   substream->pcm = kzalloc(sizeof(struct snd_pcm), GFP_KERNEL);
+  substream->pcm->card = card->linux_snd_card;
   substream->pcm->device = 0;
   runtime = kzalloc(sizeof(struct snd_pcm_runtime), GFP_KERNEL);
   if (!runtime) {
