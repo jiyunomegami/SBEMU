@@ -1157,16 +1157,21 @@ struct pci_dev {
 	u8 reset_methods[PCI_NUM_RESET_METHODS]; /* In priority order */
 };
 
+#define dev_notice(dev,...) printk(__VA_ARGS__)
 #define dev_warn(dev,...) printk(__VA_ARGS__)
 #define dev_alert(dev,...) printk(__VA_ARGS__)
 #define dev_err(dev,...) printk(__VA_ARGS__)
+#define dev_crit(dev,...) printk(__VA_ARGS__)
 
 #if PCI_DEBUG
 #define dev_dbg(dev,...) printk(__VA_ARGS__)
 #define dev_info(dev,...) printk(__VA_ARGS__)
+#define dev_info_ratelimited(dev, fmt, ...)                             \
+        printk(fmt, ##__VA_ARGS__)
 #else
 #define dev_dbg(dev,...) //printk(__VA_ARGS__)
 #define dev_info(dev,...) //printk(__VA_ARGS__)
+#define dev_info_ratelimited(dev, fmt, ...) //printk(fmt, ##__VA_ARGS__)
 #endif
 
 #define dev_WARN_ONCE(dev, condition, format, arg...) \
@@ -1270,6 +1275,18 @@ static inline unsigned int pci_resource_len (struct pci_dev *pcidev, int bar_ind
 
 #define pci_request_regions(x,nm) 0
 #define pci_release_regions(x)
+
+static inline int
+pci_resource_flags (struct pci_dev *dev, int bar)
+{
+  //return (IORESOURCE_IO|IORESOURCE_MEM); // fake both
+  if (pci_resource_start(dev, bar) < 0x10000) {
+    return IORESOURCE_IO;
+  } else {
+    return IORESOURCE_MEM;
+  }
+}
+
 #endif // XXX
 
 extern unsigned long pci_mem_start;
@@ -2768,8 +2785,54 @@ int pci_add_dynid(struct pci_driver *drv,
 		  unsigned int subvendor, unsigned int subdevice,
 		  unsigned int class, unsigned int class_mask,
 		  unsigned long driver_data);
+//const struct pci_device_id *pci_match_id(const struct pci_device_id *ids,
+//					 struct pci_dev *dev);
+// pci_match_one_device from pci/pci.h
+/**
+ * pci_match_one_device - Tell if a PCI device structure has a matching
+ *                        PCI device id structure
+ * @id: single PCI device id structure to match
+ * @dev: the PCI device structure to match against
+ *
+ * Returns the matching pci_device_id structure or %NULL if there is no match.
+ */
+static inline const struct pci_device_id *
+pci_match_one_device(const struct pci_device_id *id, const struct pci_dev *dev)
+{
+        if ((id->vendor == PCI_ANY_ID || id->vendor == dev->vendor) &&
+            (id->device == PCI_ANY_ID || id->device == dev->device) &&
+            (id->subvendor == PCI_ANY_ID || id->subvendor == dev->subsystem_vendor) &&
+            (id->subdevice == PCI_ANY_ID || id->subdevice == dev->subsystem_device) &&
+            !((id->class ^ dev->class) & id->class_mask))
+                return id;
+        return NULL;
+}
+/**
+ * pci_match_id - See if a PCI device matches a given pci_id table
+ * @ids: array of PCI device ID structures to search in
+ * @dev: the PCI device structure to match against.
+ *
+ * Used by a driver to check whether a PCI device is in its list of
+ * supported devices.  Returns the matching pci_device_id structure or
+ * %NULL if there is no match.
+ *
+ * Deprecated; don't use this as it will not catch any dynamic IDs
+ * that a driver might want to check for.
+ */
+static inline
 const struct pci_device_id *pci_match_id(const struct pci_device_id *ids,
-					 struct pci_dev *dev);
+                                         struct pci_dev *dev)
+{
+        if (ids) {
+                while (ids->vendor || ids->subvendor || ids->class_mask) {
+                        if (pci_match_one_device(ids, dev))
+                                return ids;
+                        ids++;
+                }
+        }
+        return NULL;
+}
+EXPORT_SYMBOL(pci_match_id);
 int pci_scan_bridge(struct pci_bus *bus, struct pci_dev *dev, int max,
 		    int pass);
 

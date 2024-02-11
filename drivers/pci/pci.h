@@ -194,6 +194,8 @@ extern unsigned long pci_hotplug_mmio_size;
 extern unsigned long pci_hotplug_mmio_pref_size;
 extern unsigned long pci_hotplug_bus_size;
 
+#if 0
+// moved to linux/pci.h
 /**
  * pci_match_one_device - Tell if a PCI device structure has a matching
  *			  PCI device id structure
@@ -213,6 +215,7 @@ pci_match_one_device(const struct pci_device_id *id, const struct pci_dev *dev)
 		return id;
 	return NULL;
 }
+#endif
 
 /* PCI slot sysfs helper code */
 #define to_pci_slot(s) container_of(s, struct pci_slot, kobj)

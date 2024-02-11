@@ -74,6 +74,8 @@ typedef unsigned long cpumask_var_t;
 /* test whether an address (unsigned long or pointer) is aligned to PAGE_SIZE */
 #define PAGE_ALIGNED(addr)      IS_ALIGNED((unsigned long)(addr), PAGE_SIZE)
 
+#define cpu_to_le16(x) x // assumes Little Endian CPU
+#define le16_to_cpu(x) x // assumes Little Endian CPU
 #define cpu_to_le32(x) x // assumes Little Endian CPU
 #define le32_to_cpu(x) x // assumes Little Endian CPU
 
@@ -305,9 +307,6 @@ extern void print_hex_dump(const char *level, const char *prefix_str,
                            const void *buf, size_t len, bool ascii);
 
 #define dump_stack(x) printk("dump_stack\n")
-
-#define dev_info_ratelimited(dev, fmt, ...)                             \
-        printk(fmt, ##__VA_ARGS__)
 
 #define kstrdup(x,y) strdup(x)
 #define kstrndup(x,n,z) strndup(x,n)

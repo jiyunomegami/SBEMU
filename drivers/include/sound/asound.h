@@ -21,6 +21,7 @@
 
 #include <stdlib.h>
 #include <time.h>
+#include "linux/time.h"
 
 /*
  *  protocol version
