@@ -718,7 +718,8 @@ int main(int argc, char* argv[])
         printf("Error: Invalid Volume.\n");
         return 1;
     }
-    if(MAIN_Options[OPT_RATE].value != 22050 && MAIN_Options[OPT_RATE].value != 44100 && MAIN_Options[OPT_RATE].value != 48000)
+    //if(MAIN_Options[OPT_RATE].value != 22050 && MAIN_Options[OPT_RATE].value != 44100 && MAIN_Options[OPT_RATE].value != 48000)
+    if(MAIN_Options[OPT_RATE].value < 4000 || MAIN_Options[OPT_RATE].value > 192000)
     {
         printf("Error: Invalid Sample rate.\n");
         return 1;
