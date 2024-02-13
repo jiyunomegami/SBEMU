@@ -88,12 +88,12 @@ static void MAIN_TSR_Interrupt();
   if (fm_aui.fm) {                                                      \
     if (out) {                                                          \
       if (fm_aui.card_handler->card_fm_write) {                         \
-        fm_aui.card_handler->card_fm_write(&aui, n, (uint8_t)(val & 0xff)); \
+        fm_aui.card_handler->card_fm_write(&fm_aui, n, (uint8_t)(val & 0xff)); \
         return val;                                                     \
       }                                                                 \
     } else {                                                            \
       if (fm_aui.card_handler->card_fm_read)                            \
-        return fm_aui.card_handler->card_fm_read(&aui, n);              \
+        return fm_aui.card_handler->card_fm_read(&fm_aui, n);              \
     }                                                                   \
     return 0;                                                           \
   } } while (0)
@@ -199,13 +199,13 @@ static uint32_t MAIN_MPU_330(uint32_t port, uint32_t val, uint32_t out)
 #endif
   if (out) {
     if (mpu401_aui.mpu401 && mpu401_aui.card_handler->card_mpu401_write)
-      mpu401_aui.card_handler->card_mpu401_write(&aui, 0, (uint8_t)(val & 0xff));
+      mpu401_aui.card_handler->card_mpu401_write(&mpu401_aui, 0, (uint8_t)(val & 0xff));
     ser_putbyte((int)(val & 0xff));
     return 0;
   } else {
     uint8_t val, hwval;
     if (mpu401_aui.mpu401 && mpu401_aui.card_handler->card_mpu401_read)
-      hwval = mpu401_aui.card_handler->card_mpu401_read(&aui, 0);
+      hwval = mpu401_aui.card_handler->card_mpu401_read(&mpu401_aui, 0);
     if (mpu_state == 1) {
       mpu_state = 0;
       val = 0xfe;
@@ -237,7 +237,7 @@ static uint32_t MAIN_MPU_331(uint32_t port, uint32_t val, uint32_t out)
 #endif
   if (out) {
     if (mpu401_aui.mpu401 && mpu401_aui.card_handler->card_mpu401_write)
-      mpu401_aui.card_handler->card_mpu401_write(&aui, 1, (uint8_t)(val & 0xff));
+      mpu401_aui.card_handler->card_mpu401_write(&mpu401_aui, 1, (uint8_t)(val & 0xff));
     if (val == 0xff) { // Reset
 #if MPU_DEBUG
       mpu_dbg_ctr = 0;
@@ -252,7 +252,7 @@ static uint32_t MAIN_MPU_331(uint32_t port, uint32_t val, uint32_t out)
     return 0;
   }
   if (mpu401_aui.mpu401 && mpu401_aui.card_handler->card_mpu401_read)
-    return mpu401_aui.card_handler->card_mpu401_read(&aui, 1);
+    return mpu401_aui.card_handler->card_mpu401_read(&mpu401_aui, 1);
   if ((mpu_state & 3) == 0) {
     return 0x80;
   } else {
