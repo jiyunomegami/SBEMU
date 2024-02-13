@@ -1251,13 +1251,14 @@ int ctxfi_alsa_mix_volume_get (struct ct_atc *atc, int type)
 	return val;
 }
 
-int ctxfi_alsa_mix_volume_put (struct ct_atc *atc, int type, int val)
+int ctxfi_alsa_mix_volume_put (struct ct_atc *atc, int type, int in_val)
 {
 	struct ct_mixer *mixer = atc->mixer;
 	struct amixer *amixer;
 	int i, j, oval, change = 0;
 
 	for (i = 0; i < 2; i++) {
+		int val = in_val;
 		if (val < 0)
 			val = 0;
 		else if (val > VOL_MAX)
@@ -1269,6 +1270,7 @@ int ctxfi_alsa_mix_volume_put (struct ct_atc *atc, int type, int val)
 			amixer->ops->set_scale(amixer, val);
 			amixer->ops->commit_write(amixer);
 			change = 1;
+#if 0
 			/* Synchronize Master/PCM playback AMIXERs. */
 			if (AMIXER_MASTER_F == type || AMIXER_PCM_F == type) {
 				for (j = 1; j < 4; j++) {
@@ -1278,6 +1280,7 @@ int ctxfi_alsa_mix_volume_put (struct ct_atc *atc, int type, int val)
 					amixer->ops->commit_write(amixer);
 				}
 			}
+#endif
 		}
 	}
 

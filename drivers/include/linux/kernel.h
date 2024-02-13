@@ -2,9 +2,18 @@
 #define SBEMU_LINUX_KERNEL_H
 
 #ifndef outb
+//#define outb(x,y) outportb(y,x)
+//#define outw(x,y) outportw(y,x)
+//#define outl(x,y) outportl(y,x)
 #define outb(x,y) outp(y,x)
 #define outw(x,y) outpw(y,x)
 #define outl(x,y) outpd(y,x)
+#endif
+
+#ifndef inb
+#define inb(reg) inp(reg)
+#define inw(reg) inpw(reg)
+#define inl(reg) inpd(reg)
 #endif
 
 #define CONFIG_X86 1
@@ -267,8 +276,8 @@ struct irq_affinity_desc {
 #endif
 
 // linux/printk.h:
-#define KERN_INFO "INFO"
-#define KERN_DEBUG "DEBUG"
+#define KERN_INFO "INFO: "
+#define KERN_DEBUG "DEBUG: "
 #define KERN_ERR "ERROR: "
 
 #define PRINTK_USES_PRINTF 0
@@ -296,6 +305,17 @@ struct irq_affinity_desc {
 #define WARN_ON(x) x
 
 #define HERE() printk("%s:%d\n", __FILE__, __LINE__)
+#define LHERE(_label)                                                   \
+  do {                                                                  \
+    printk("%s:%d %4.4X:%8.8X\n", __FILE__, __LINE__,                   \
+           _my_cs(), (uintptr_t)&&_label);                              \
+  } while (0)
+#define HEREL(_label)                                                   \
+  do {                                                                  \
+    printk("%s:%d %4.4X:%8.8X\n", __FILE__, __LINE__,                   \
+           _my_cs(), (uintptr_t)&&_label);                              \
+  _label:                                                               \
+  } while (0)
 
 enum {
         DUMP_PREFIX_NONE,

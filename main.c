@@ -584,7 +584,7 @@ static void MAIN_Cleanup()
     if(OldRoutedHandle.valid)
         HDPMIPT_InstallIRQRoutedHandlerH(aui.card_irq, &OldRoutedHandle);
     AU_stop(&aui);
-    AU_close(&aui);
+    AU_close(&aui, &fm_aui, &mpu401_aui);
     if(OPLRMInstalled)
         QEMM_Uninstall_IOPortTrap(&OPL3IOPT);
     if(OPLPMInstalled)
@@ -880,8 +880,12 @@ int main(int argc, char* argv[])
         }
 
         //OPL3EMU_Init(aui.freq_card);
-        char *emutype = fm_aui.card_handler ? "hardware" : "emulation";
-        printf("OPL3 %s at port 388: ", emutype);
+        char *emutype = fm_aui.fm ? "hardware" : "emulation";
+        char hwdesc[64];
+        hwdesc[0] = '\0';
+        if (fm_aui.fm)
+          sprintf(hwdesc, "(%d:%s)", fm_aui.card_test_index, fm_aui.card_handler->shortname);
+        printf("OPL3 %s%s at port 388: ", emutype, hwdesc);
         MAIN_Print_Enabled_Newline(true);
     }
     
@@ -899,9 +903,13 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        char *emutype = mpu401_aui.card_handler ? "hardware" : "emulation";
-        printf("MPU-401 UART %s at address %x: ",
-               emutype, MAIN_Options[OPT_MPUADDR].value);
+        char *emutype = mpu401_aui.mpu401 ? "hardware" : "emulation";
+        char hwdesc[64];
+        hwdesc[0] = '\0';
+        if (mpu401_aui.mpu401)
+          sprintf(hwdesc, "(%d:%s)", mpu401_aui.card_test_index, mpu401_aui.card_handler->shortname);
+        printf("MPU-401 UART %s%s at address %x: ",
+               emutype, hwdesc, MAIN_Options[OPT_MPUADDR].value);
         MAIN_Print_Enabled_Newline(true);
     }
 
@@ -926,11 +934,18 @@ int main(int argc, char* argv[])
     QEMM_IODT* SB_Iodt = MAIN_Options[OPT_OPL].value ? MAIN_SB_IODT : MAIN_SB_IODT+4;
     int SB_IodtCount = MAIN_Options[OPT_OPL].value ? countof(MAIN_SB_IODT) : countof(MAIN_SB_IODT)-4;
 
-    printf("SB %s emulation at address %x, IRQ %x, DMA %x: ",
-            MAIN_SBTypeString[MAIN_Options[OPT_TYPE].value],
-            MAIN_Options[OPT_ADDR].value,
-            MAIN_Options[OPT_IRQ].value,
-            MAIN_Options[OPT_DMA].value);
+    {
+      char hwdesc[64];
+      hwdesc[0] = '\0';
+      if (aui.pcm)
+        sprintf(hwdesc, "(%d:%s)", aui.card_test_index, aui.card_handler->shortname);
+      printf("SB %s%s emulation at address %x, IRQ %x, DMA %x: ",
+             MAIN_SBTypeString[MAIN_Options[OPT_TYPE].value],
+             hwdesc,
+             MAIN_Options[OPT_ADDR].value,
+             MAIN_Options[OPT_IRQ].value,
+             MAIN_Options[OPT_DMA].value);
+    }
     MAIN_Print_Enabled_Newline(true);
 
     BOOL QEMMInstalledVDMA = !enableRM || QEMM_Install_IOPortTrap(MAIN_VDMA_IODT, countof(MAIN_VDMA_IODT), &MAIN_VDMA_IOPT);
@@ -1492,8 +1507,10 @@ static void MAIN_TSR_Interrupt()
                 if(opt[OPT_OUTPUT].value != MAIN_Options[OPT_OUTPUT].value || opt[OPT_RESET].value)
                 {
                     _LOG("Reset\n");
-                    AU_close(&aui);
+                    AU_close(&aui, &fm_aui, &mpu401_aui);
                     memset(&aui, 0, sizeof(aui));
+                    memset(&fm_aui, 0, sizeof(fm_aui));
+                    memset(&mpu401_aui, 0, sizeof(mpu401_aui));
                     aui.card_select_config = MAIN_Options[OPT_OUTPUT].value = opt[OPT_OUTPUT].value;
                     aui.card_select_index =  MAIN_Options[OPT_SC].value;
                     aui.card_controlbits |= AUINFOS_CARDCNTRLBIT_SILENT; //don't print anything in interrupt

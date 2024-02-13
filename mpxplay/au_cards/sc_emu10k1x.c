@@ -129,6 +129,14 @@ static void EMU10K1X_close (struct mpxplay_audioout_info_s *aui)
 {
   struct emu10k1x_card_s *card = aui->card_private_data;
   if (card) {
+    if (card->pcm_substream) {
+      if (card->pcm_substream->runtime) {
+        if (card->pcm_substream->runtime->dma_buffer_p)
+          snd_dma_free_pages(card->pcm_substream->runtime->dma_buffer_p);
+        kfree(card->pcm_substream->runtime);
+      }
+      kfree(card->pcm_substream);
+    }
     if (card->linux_snd_card)
       snd_emu10k1x_free(card->linux_snd_card);
     if (card->pci_dev)
@@ -189,9 +197,13 @@ static int EMU10K1X_adetect (struct mpxplay_audioout_info_s *aui)
   err = snd_emu10k1x_probe(card->linux_snd_card, card->linux_pci_dev);
   if (err) goto err_adetect;
   aui->freq_card = 48000;
-  err = make_snd_pcm_substream(aui, card, &card->pcm_substream);
-  if (err) goto err_adetect;
-  aui->mpu401 = 1;
+  if (!aui->card_select_index_mpu401 || aui->card_select_index_mpu401 == aui->card_test_index) {
+    aui->mpu401 = 1;
+  }
+  if (!aui->card_select_index_mpu401 && !(!aui->card_select_index || aui->card_select_index == aui->card_test_index)) {
+    aui->mpu401 = 0;
+  }
+
   emu10k1xdbg("EMU10K1X : Creative %s (%4.4X) IRQ %u\n", card->pci_dev->device_name, card->pci_dev->device_id, card->irq);
 
   return 1;
@@ -204,10 +216,18 @@ err_adetect:
 static void EMU10K1X_setrate (struct mpxplay_audioout_info_s *aui)
 {
   struct emu10k1x_card_s *card = aui->card_private_data;
+  int err;
+
   emu10k1xdbg("setrate %u\n", aui->freq_card);
   aui->freq_card = 48000; // 48KHz only
+  err = make_snd_pcm_substream(aui, card, &card->pcm_substream);
+  if (err) goto err_setrate;
   emu10k1xdbg("-> %u\n", aui->freq_card);
   snd_emu10k1x_pcm_prepare(card->pcm_substream);
+  return;
+
+ err_setrate:
+  emu10k1xdbg("setrate error\n");
 }
 
 static void EMU10K1X_start (struct mpxplay_audioout_info_s *aui)
@@ -245,8 +265,8 @@ static long EMU10K1X_getbufpos (struct mpxplay_audioout_info_s *aui)
 
 static aucards_onemixerchan_s EMU10K1X_master_vol={AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME),2,{{0,15,4,0},{0,15,0,0}}};
 static aucards_allmixerchan_s EMU10K1X_mixerset[] = {
- &EMU10K1X_master_vol,
- NULL
+  &EMU10K1X_master_vol,
+  NULL
 };
 
 extern u16 emu10k1x_ac97_read (struct snd_card *card, u8 reg);
@@ -262,13 +282,15 @@ static void EMU10K1X_writeMIXER (struct mpxplay_audioout_info_s *aui, unsigned l
   u16 ac97val = (lval << 8) | lval;
   if (val <= 1) ac97val |= 0x8000;
   emu10k1xdbg("write mixer ac97val: %4.4X\n", ac97val);
-  emu10k1x_ac97_write(card->linux_snd_card, AC97_MASTER, ac97val);
+  emu10k1x_ac97_write(card->linux_snd_card, AC97_MASTER, 0x0000); // MAX
+  emu10k1x_ac97_write(card->linux_snd_card, AC97_LINE, 0x0000); // MAX
+  emu10k1x_ac97_write(card->linux_snd_card, AC97_PCM, ac97val);
 }
 
 static unsigned long EMU10K1X_readMIXER (struct mpxplay_audioout_info_s *aui, unsigned long reg)
 {
   struct emu10k1x_card_s *card = aui->card_private_data;
-  u16 ac97val = emu10k1x_ac97_read(card->linux_snd_card, AC97_MASTER);
+  u16 ac97val = emu10k1x_ac97_read(card->linux_snd_card, AC97_PCM);
   emu10k1xdbg("read ac97val %4.4X\n", ac97val);
   u16 lval = 31 - (ac97val & 31);
   lval >>= 1;
@@ -307,32 +329,32 @@ static void EMU10K1X_mpu401_write (struct mpxplay_audioout_info_s *aui, unsigned
 }
 
 one_sndcard_info EMU10K1X_sndcard_info = {
- "EMU10K1X",
- SNDCARD_LOWLEVELHAND|SNDCARD_INT08_ALLOWED,
+  "EMU10K1X",
+  SNDCARD_LOWLEVELHAND|SNDCARD_INT08_ALLOWED,
 
- NULL,
- NULL,
- &EMU10K1X_adetect,
- &EMU10K1X_card_info,
- &EMU10K1X_start,
- &EMU10K1X_stop,
- &EMU10K1X_close,
- &EMU10K1X_setrate,
+  NULL,
+  NULL,
+  &EMU10K1X_adetect,
+  &EMU10K1X_card_info,
+  &EMU10K1X_start,
+  &EMU10K1X_stop,
+  &EMU10K1X_close,
+  &EMU10K1X_setrate,
 
- &MDma_writedata,
- &EMU10K1X_getbufpos,
- &MDma_clearbuf,
- &MDma_interrupt_monitor,
- &EMU10K1X_IRQRoutine,
+  &MDma_writedata,
+  &EMU10K1X_getbufpos,
+  &MDma_clearbuf,
+  &MDma_interrupt_monitor,
+  &EMU10K1X_IRQRoutine,
 
- &EMU10K1X_writeMIXER,
- &EMU10K1X_readMIXER,
- &EMU10K1X_mixerset[0],
+  &EMU10K1X_writeMIXER,
+  &EMU10K1X_readMIXER,
+  &EMU10K1X_mixerset[0],
 
- NULL,
- NULL,
- &EMU10K1X_mpu401_write,
- &EMU10K1X_mpu401_read,
+  NULL,
+  NULL,
+  &EMU10K1X_mpu401_write,
+  &EMU10K1X_mpu401_read,
 };
 
 #endif // AUCARDS_LINK_EMU10K1X

@@ -25,8 +25,10 @@
 #endif
 #include "dpmi/dbgutil.h"
 #if YMF_DEBUG
-#endif
 #define YMF_printf(...) do { printf("YMF: "); printf(__VA_ARGS__); } while (0)
+#else
+#define YMF_printf(...)
+#endif
 #if YSBEMU_CONFIG_UTIL
 #define DBG_Logi(...) do { printf(__VA_ARGS__); } while (0) // ysbemu
 #endif
@@ -807,6 +809,8 @@ static int snd_ymfpci_ac3_init (struct ymf_card_s *card)
   DBG_Logi("ac3_init...\n");
 #endif
   unsigned int size = card->pcmout_bufsize;
+  if (card->dm2)
+    MDma_free_cardmem(card->dm2);
   card->dm2 = MDma_alloc_cardmem(size);
   if (!card->dm2)
     return -1;
@@ -1014,6 +1018,12 @@ void YMF_mixer_init (struct ymf_card_s *card)
   snd_ymfpci_writel(card, YDSXGR_LEGACYOUTVOL, 0x3fff3fff);
 }
 
+#if YMF_ENABLE_PCM
+static void snd_ymfpci_hw_start (struct ymf_card_s *card);
+static void YMF_setrate (struct mpxplay_audioout_info_s *aui);
+static void YMF_start (struct mpxplay_audioout_info_s *aui);
+#endif
+
 static int YMF_adetect (struct mpxplay_audioout_info_s *aui)
 {
   struct ymf_card_s *card;
@@ -1136,14 +1146,8 @@ try_724:
   pcibios_WriteConfig_Word(card->pci_dev, PCIR_DSXG_ELEGACY, legacy_ctrl2);
   //printf("old: %x  new: %x\n", old_legacy_ctrl, legacy_ctrl);
 
-  //YMF_printf("SB port: %x\n", sbport);
   YMF_printf("FM port: %x\n", fmport);
   YMF_printf("MPU-401 port: %x\n", mpuport);
-#if YMF_DEBUG
-  //DBG_Logi("SB port: %x\n", sbport);
-  DBG_Logi("FM port: %x\n", fmport);
-  DBG_Logi("MPU-401 port: %x\n", mpuport);
-#endif
 
   if (!card->legacy_iobase) {
     // Check if subtractive decode is working
@@ -1242,6 +1246,9 @@ try_724:
     if (snd_ymfpci_memalloc(aui)) {
       goto err_adetect;
     }
+    //if (snd_ymfpci_ac3_init(card)) {
+    //  goto err_adetect;
+    //}
   }
 #endif
 #endif
@@ -1280,35 +1287,36 @@ try_724:
   dumped = 1;
 #endif
 
-  if (aui->card_select_index_fm == 0 || aui->card_select_index_fm == aui->card_test_index) {
-    aui->fm_port = card->fmport;
-    aui->fm = 1;
+  if (!aui->card_select_index_fm || aui->card_select_index_fm == aui->card_test_index) {
+    if (card->fmport) {
+      aui->fm_port = card->fmport;
+      aui->fm = 1;
+    }
   }
-  if (aui->card_select_index_mpu401 == 0 || aui->card_select_index_mpu401 == aui->card_test_index) {
-    aui->mpu401_port = card->mpuport;
-    aui->mpu401 = 1;
+  if (!aui->card_select_index_mpu401 || aui->card_select_index_mpu401 == aui->card_test_index) {
+    if (card->mpuport) {
+      aui->mpu401_port = card->mpuport;
+      aui->mpu401 = 1;
+    }
   }
+#if 0 // done in au_cards.c
   // Disable HW FM/MPU if another card was selected
-  if (!aui->card_select_index_fm && !(aui->card_select_index == 0 || aui->card_select_index == aui->card_test_index)) {
+  if (!aui->card_select_index_fm && !(!aui->card_select_index || aui->card_select_index == aui->card_test_index)) {
     aui->fm_port = 0;
     aui->fm = 0;
   }
-  if (!aui->card_select_index_mpu401 && !(aui->card_select_index == 0 || aui->card_select_index == aui->card_test_index)) {
+  if (!aui->card_select_index_mpu401 && !(!aui->card_select_index || aui->card_select_index == aui->card_test_index)) {
     aui->mpu401_port = 0;
     aui->mpu401 = 0;
   }
+#endif
 
 #if YMF_ENABLE_PCM
   if (aui->card_handler == &YMFSB_sndcard_info)
     return 1;
   else
 #endif
-  {
-    if (card->fmport) {
-      au_cards_fallback_to_null = 1;
-    }
     return 0;
-  }
 
  err_adetect:
   YMF_close(aui);
@@ -1888,7 +1896,7 @@ static unsigned long YMF_readMIXER (struct mpxplay_audioout_info_s *aui, unsigne
 #endif
 
 one_sndcard_info YMF_sndcard_info={
-  "Yamaha YMF FM/MPU only",
+  "YMF",
   SNDCARD_LOWLEVELHAND|SNDCARD_INT08_ALLOWED,
 
   NULL,
@@ -1918,7 +1926,7 @@ one_sndcard_info YMF_sndcard_info={
 
 #if YMF_ENABLE_PCM
 one_sndcard_info YMFSB_sndcard_info={
-  "Yamaha DS1/DS1E (YMF7xx)",
+  "YMF",
   SNDCARD_LOWLEVELHAND|SNDCARD_INT08_ALLOWED,
 
   NULL,
@@ -1947,7 +1955,7 @@ one_sndcard_info YMFSB_sndcard_info={
 };
 #else
 one_sndcard_info YMFSB_sndcard_info={
-  "Yamaha YMF FM/MPU only",
+  "YMF",
   SNDCARD_LOWLEVELHAND|SNDCARD_INT08_ALLOWED,
 
   NULL,

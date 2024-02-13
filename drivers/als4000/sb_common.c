@@ -26,12 +26,13 @@ MODULE_LICENSE("GPL");
 #define BUSY_LOOPS 100000
 
 #undef IO_DEBUG
+//#define IO_DEBUG 1
 
 int snd_sbdsp_command(struct snd_sb *chip, unsigned char val)
 {
 	int i;
 #ifdef IO_DEBUG
-	snd_printk(KERN_DEBUG "command 0x%x\n", val);
+	snd_printk(KERN_DEBUG "command (%X) 0x%x\n", chip->port, val);
 #endif
 	for (i = BUSY_LOOPS; i; i--)
 		if ((inb(SBP(chip, STATUS)) & 0x80) == 0) {

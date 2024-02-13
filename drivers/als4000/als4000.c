@@ -224,7 +224,8 @@ int snd_als4000_playback_prepare(struct snd_pcm_substream *substream)
 	
 	size = snd_pcm_lib_buffer_bytes(substream);
 	count = snd_pcm_lib_period_bytes(substream);
-	
+
+        // spec says Length = # of byte transfer - 1   but we divide by two here????
 	if (chip->playback_format & ALS4000_FORMAT_16BIT)
 		count >>= 1;
 	count--;
@@ -286,6 +287,44 @@ static int snd_als4000_capture_trigger(struct snd_pcm_substream *substream, int 
 }
 #endif
 
+extern void als4000_mixer_init (struct snd_sb *chip);
+
+// Need to call this after playback_trigger, or else PCM interrupts do not fire and FM sound volume is extremely low
+static void snd_als4000_configure2(struct snd_sb *chip)
+{
+	u8 tmp;
+	int i;
+
+	/* do some more configuration */
+	spin_lock_irq(&chip->mixer_lock);
+	tmp = snd_als4_cr_read(chip, ALS4K_CR0_SB_CONFIG);
+	snd_als4_cr_write(chip, ALS4K_CR0_SB_CONFIG,
+				tmp|ALS4K_CR0_MX80_81_REG_WRITE_ENABLE);
+	/* always select DMA channel 0, since we do not actually use DMA
+	 * SPECS_PAGE: 19/20 */
+	snd_sbmixer_write(chip, SB_DSP4_DMASETUP, SB_DMASETUP_DMA0);
+	snd_als4_cr_write(chip, ALS4K_CR0_SB_CONFIG,
+				 tmp & ~ALS4K_CR0_MX80_81_REG_WRITE_ENABLE);
+	spin_unlock_irq(&chip->mixer_lock);
+
+	spin_lock_irq(&chip->reg_lock);
+	/* enable interrupts */
+        // Version 3(ALS200/ALS110//ALS4000/ALS120) FIFO controlled continuous DMA mode
+	snd_als4k_gcr_write(chip, ALS4K_GCR8C_MISC_CTRL, (3<<16) | ALS4K_GCR8C_IRQ_MASK_CTRL_ENABLE);
+
+#if 0
+	/* SPECS_PAGE: 39 */
+	for (i = ALS4K_GCR91_DMA0_ADDR; i <= ALS4K_GCR96_DMA3_MODE_COUNT; ++i)
+		snd_als4k_gcr_write(chip, i, 0);
+#endif
+	/* enable burst mode to prevent dropouts during high PCI bus usage */
+	snd_als4k_gcr_write(chip, ALS4K_GCR99_DMA_EMULATION_CTRL,
+		(snd_als4k_gcr_read(chip, ALS4K_GCR99_DMA_EMULATION_CTRL) & ~0x07) | 0x04);
+	spin_unlock_irq(&chip->reg_lock);
+
+	als4000_mixer_init(chip);
+}
+
 int snd_als4000_playback_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct snd_sb *chip = snd_pcm_substream_chip(substream);
@@ -296,6 +335,7 @@ int snd_als4000_playback_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 		chip->mode |= SB_RATE_LOCK_PLAYBACK;
+		snd_als4000_configure2(chip);
 		snd_sbdsp_command(chip, playback_cmd(chip).dma_on);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
@@ -333,8 +373,9 @@ snd_pcm_uframes_t snd_als4000_playback_pointer(struct snd_pcm_substream *substre
 	spin_lock(&chip->reg_lock);	
 	result = snd_als4k_gcr_read(chip, ALS4K_GCRA0_FIFO1_CURRENT_ADDR);
 	spin_unlock(&chip->reg_lock);
-	result &= 0xffff;
-	return bytes_to_frames( substream->runtime, result );
+	//result &= 0xffff;
+	//return bytes_to_frames( substream->runtime, result );
+	return result;
 }
 
 /* FIXME: this IRQ routine doesn't really support IRQ sharing (we always
@@ -374,12 +415,12 @@ irqreturn_t snd_als4000_interrupt(int irq, void *dev_id)
 	/* ACK the PCI block IRQ */
 	snd_als4k_iobase_writeb(chip->alt_port,
 			 ALS4K_IOB_0E_IRQTYPE_SB_CR1E_MPU, pci_irqstatus);
-	
+
 	spin_lock(&chip->mixer_lock);
 	/* SPECS_PAGE: 20 */
 	sb_irqstatus = snd_sbmixer_read(chip, SB_DSP4_IRQSTATUS);
 	spin_unlock(&chip->mixer_lock);
-	
+
 	if (sb_irqstatus & SB_IRQTYPE_8BIT)
 		snd_sb_ack_8bit(chip);
 	if (sb_irqstatus & SB_IRQTYPE_16BIT)
@@ -567,8 +608,8 @@ static void snd_als4000_configure(struct snd_sb *chip)
 	
 	spin_lock_irq(&chip->reg_lock);
 	/* enable interrupts */
-	snd_als4k_gcr_write(chip, ALS4K_GCR8C_MISC_CTRL,
-					ALS4K_GCR8C_IRQ_MASK_CTRL_ENABLE);
+        // Version 3(ALS200/ALS110//ALS4000/ALS120) FIFO controlled continuous DMA mode
+	snd_als4k_gcr_write(chip, ALS4K_GCR8C_MISC_CTRL, (3<<16) | ALS4K_GCR8C_IRQ_MASK_CTRL_ENABLE);
 
 	/* SPECS_PAGE: 39 */
 	for (i = ALS4K_GCR91_DMA0_ADDR; i <= ALS4K_GCR96_DMA3_MODE_COUNT; ++i)
@@ -641,6 +682,132 @@ static inline int snd_als4000_create_gameport(struct snd_card_als4000 *acard, in
 static inline void snd_als4000_free_gameport(struct snd_card_als4000 *acard) { }
 #endif
 
+#define OPL3_LEFT               0x0000
+#define OPL3_RIGHT              0x0100
+#define OPL3_REG_TEST                   0x01
+#define   OPL3_ENABLE_WAVE_SELECT       0x20
+
+#define OPL3_REG_TIMER1                 0x02
+#define OPL3_REG_TIMER2                 0x03
+#define OPL3_REG_TIMER_CONTROL          0x04    /* Left side */
+#define   OPL3_IRQ_RESET                0x80
+#define   OPL3_TIMER1_MASK              0x40
+#define   OPL3_TIMER2_MASK              0x20
+#define   OPL3_TIMER1_START             0x01
+#define   OPL3_TIMER2_START             0x02
+
+#define OPL3_REG_CONNECTION_SELECT      0x04    /* Right side */
+#define   OPL3_LEFT_4OP_0               0x01
+#define   OPL3_LEFT_4OP_1               0x02
+#define   OPL3_LEFT_4OP_2               0x04
+#define   OPL3_RIGHT_4OP_0              0x08
+#define   OPL3_RIGHT_4OP_1              0x10
+#define   OPL3_RIGHT_4OP_2              0x20
+
+#define OPL3_REG_MODE                   0x05    /* Right side */
+#define   OPL3_OPL3_ENABLE              0x01    /* OPL3 mode */
+#define   OPL3_OPL4_ENABLE              0x02    /* OPL4 mode */
+
+#define OPL3_REG_KBD_SPLIT              0x08    /* Left side */
+#define   OPL3_COMPOSITE_SINE_WAVE_MODE 0x80    /* Don't use with OPL-3? */
+#define   OPL3_KEYBOARD_SPLIT           0x40
+
+#define OPL3_REG_PERCUSSION             0xbd    /* Left side only */
+#define   OPL3_TREMOLO_DEPTH            0x80
+#define   OPL3_VIBRATO_DEPTH            0x40
+#define   OPL3_PERCUSSION_ENABLE        0x20
+#define   OPL3_BASSDRUM_ON              0x10
+#define   OPL3_SNAREDRUM_ON             0x08
+#define   OPL3_TOMTOM_ON                0x04
+#define   OPL3_CYMBAL_ON                0x02
+#define   OPL3_HIHAT_ON                 0x01
+
+static void opl3_command (uint16_t l_port, uint16_t r_port, unsigned short cmd, unsigned char val)
+{
+        unsigned long flags;
+
+        /*
+         * The OPL-3 survives with just two INBs
+         * after writing to a register.
+         */
+
+        uint16_t port = (cmd & OPL3_RIGHT) ? r_port : l_port;
+
+        spin_lock_irqsave(&opl3->reg_lock, flags);
+
+        outb((unsigned char) cmd, port);
+        inb(l_port);
+        inb(l_port);
+
+        outb((unsigned char) val, port + 1);
+        inb(l_port);
+        inb(l_port);
+
+        spin_unlock_irqrestore(&opl3->reg_lock, flags);
+}
+
+static int opl3_detect (uint16_t l_port, uint16_t r_port)
+{
+        /*
+         * This function returns 1 if the FM chip is present at the given I/O port
+         * The detection algorithm plays with the timer built in the FM chip and
+         * looks for a change in the status register.
+         *
+         * Note! The timers of the FM chip are not connected to AdLib (and compatible)
+         * boards.
+         *
+         * Note2! The chip is initialized if detected.
+         */
+
+        unsigned char stat1, stat2, signature;
+
+        /* Reset timers 1 and 2 */
+        opl3_command(l_port, r_port, OPL3_LEFT | OPL3_REG_TIMER_CONTROL, OPL3_TIMER1_MASK | OPL3_TIMER2_MASK);
+        /* Reset the IRQ of the FM chip */
+        opl3_command(l_port, r_port, OPL3_LEFT | OPL3_REG_TIMER_CONTROL, OPL3_IRQ_RESET);
+        signature = stat1 = inb(l_port);  /* Status register */
+        if ((stat1 & 0xe0) != 0x00) {   /* Should be 0x00 */
+                snd_printd("OPL3: stat1 = 0x%x\n", stat1);
+                return -ENODEV;
+        }
+        /* Set timer1 to 0xff */
+        opl3_command(l_port, r_port, OPL3_LEFT | OPL3_REG_TIMER1, 0xff);
+        /* Unmask and start timer 1 */
+        opl3_command(l_port, r_port, OPL3_LEFT | OPL3_REG_TIMER_CONTROL, OPL3_TIMER2_MASK | OPL3_TIMER1_START);
+        /* Now we have to delay at least 80us */
+        udelay(200);
+        /* Read status after timers have expired */
+        stat2 = inb(l_port);
+        /* Stop the timers */
+        opl3_command(l_port, r_port, OPL3_LEFT | OPL3_REG_TIMER_CONTROL, OPL3_TIMER1_MASK | OPL3_TIMER2_MASK);
+        /* Reset the IRQ of the FM chip */
+        opl3_command(l_port, r_port, OPL3_LEFT | OPL3_REG_TIMER_CONTROL, OPL3_IRQ_RESET);
+        if ((stat2 & 0xe0) != 0xc0) {   /* There is no YM3812 */
+                snd_printd("OPL3: stat2 = 0x%x\n", stat2);
+                return -ENODEV;
+        }
+#if 0
+        /* If the toplevel code knows exactly the type of chip, don't try
+           to detect it. */
+        if (opl3->hardware != OPL3_HW_AUTO)
+                return 0;
+
+        /* There is a FM chip on this address. Detect the type (OPL2 to OPL4) */
+        if (signature == 0x06) {        /* OPL2 */
+                opl3->hardware = OPL3_HW_OPL2;
+        } else {
+                /*
+                 * If we had an OPL4 chip, opl3->hardware would have been set
+                 * by the OPL4 driver; so we can assume OPL3 here.
+                 */
+                if (snd_BUG_ON(!opl3->r_port))
+                        return -ENODEV;
+                opl3->hardware = OPL3_HW_OPL3;
+        }
+#endif
+        return 0;
+}
+
 void snd_card_als4000_free( struct snd_card *card )
 {
 	struct snd_card_als4000 *acard = card->private_data;
@@ -682,6 +849,7 @@ int snd_card_als4000_create (struct snd_card *card,
 	iobase = pci_resource_start(pci, 0);
 
 	pci_read_config_word(pci, PCI_COMMAND, &word);
+	//printk("PCI COMMAND: %X\n", word);
 	pci_write_config_word(pci, PCI_COMMAND, word | PCI_COMMAND_IO);
 	pci_set_master(pci);
 
@@ -704,13 +872,16 @@ int snd_card_als4000_create (struct snd_card *card,
 	acard->iobase = iobase;
 	card->private_free = snd_card_als4000_free;
 
+	// Reset
+	outb(1, iobase + ALS4K_IOB_16_ESP_RESET);
+	udelay(100);
+
 	/* disable all legacy ISA stuff */
 	snd_als4000_set_addr(acard->iobase, 0, 0, 0, 0);
 
 	err = snd_sbdsp_create(card,
 			       iobase + ALS4K_IOB_10_ADLIB_ADDR0,
 			       pci->irq,
-		/* internally registered as IRQF_SHARED in case of ALS4000 SB */
 			       snd_als4000_interrupt,
 			       -1,
 			       -1,
@@ -725,12 +896,12 @@ int snd_card_als4000_create (struct snd_card *card,
 
 	snd_als4000_configure(chip);
 
-#if 0
 	strcpy(card->driver, "ALS4000");
 	strcpy(card->shortname, "Avance Logic ALS4000");
 	sprintf(card->longname, "%s at 0x%lx, irq %i",
 		card->shortname, chip->alt_port, chip->irq);
 
+#if 0
 	err = snd_mpu401_uart_new(card, 0, MPU401_HW_ALS4000,
 				  iobase + ALS4K_IOB_30_MIDI_DATA,
 				  MPU401_INFO_INTEGRATED |
@@ -750,11 +921,22 @@ int snd_card_als4000_create (struct snd_card *card,
 	err = snd_als4000_pcm(chip, 0);
 	if (err < 0)
 		return err;
+#endif
+
+#if 0 // not required
+	opl3_detect(iobase+ALS4K_IOB_10_ADLIB_ADDR0, iobase+ALS4K_IOB_12_ADLIB_ADDR2);
+	opl3_command(iobase+ALS4K_IOB_10_ADLIB_ADDR0, iobase+ALS4K_IOB_12_ADLIB_ADDR2, OPL3_LEFT | OPL3_REG_TEST, OPL3_ENABLE_WAVE_SELECT);
+	/* Melodic mode */
+	opl3_command(iobase+ALS4K_IOB_10_ADLIB_ADDR0, iobase+ALS4K_IOB_12_ADLIB_ADDR2, OPL3_LEFT | OPL3_REG_PERCUSSION, 0x00);
+	/* Enter OPL3 mode */
+	opl3_command(iobase+ALS4K_IOB_10_ADLIB_ADDR0, iobase+ALS4K_IOB_12_ADLIB_ADDR2, OPL3_RIGHT | OPL3_REG_MODE, OPL3_OPL3_ENABLE);
+#endif
 
 	err = snd_sbmixer_new(chip);
 	if (err < 0)
 		return err;
 
+#if 0
 	if (snd_opl3_create(card,
 				iobase + ALS4K_IOB_10_ADLIB_ADDR0,
 				iobase + ALS4K_IOB_12_ADLIB_ADDR2,

@@ -159,6 +159,14 @@ static void OXYGEN_close (struct mpxplay_audioout_info_s *aui)
 {
   struct oxygen_card_s *card = aui->card_private_data;
   if (card) {
+    if (card->pcm_substream) {
+      if (card->pcm_substream->runtime) {
+        if (card->pcm_substream->runtime->dma_buffer_p)
+          snd_dma_free_pages(card->pcm_substream->runtime->dma_buffer_p);
+        kfree(card->pcm_substream->runtime);
+      }
+      kfree(card->pcm_substream);
+    }
     if (card->linux_snd_card)
       oxygen_card_free(card->linux_snd_card);
     if (card->pci_dev)

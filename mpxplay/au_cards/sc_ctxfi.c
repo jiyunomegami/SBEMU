@@ -121,6 +121,14 @@ static void CTXFI_close (struct mpxplay_audioout_info_s *aui)
 {
   struct ctxfi_card_s *card = aui->card_private_data;
   if (card) {
+    if (card->pcm_substream) {
+      if (card->pcm_substream->runtime) {
+        if (card->pcm_substream->runtime->dma_buffer_p)
+          snd_dma_free_pages(card->pcm_substream->runtime->dma_buffer_p);
+        kfree(card->pcm_substream->runtime);
+      }
+      kfree(card->pcm_substream);
+    }
     if (card->atc)
       ct_atc_destroy(card->atc);
     if (card->pci_dev)
@@ -193,9 +201,7 @@ static int CTXFI_adetect (struct mpxplay_audioout_info_s *aui)
                       &atc);
   if (err) goto err_adetect;
   card->atc = atc;
-  aui->freq_card = 22050;
-  err = make_snd_pcm_substream(aui, card, &card->pcm_substream);
-  if (err) goto err_adetect;
+
   ctxfidbg("CTXFI : Creative %s (%4.4X) IRQ %u\n", card->pci_dev->device_name, card->pci_dev->device_id, card->irq);
 
   return 1;
@@ -208,15 +214,22 @@ err_adetect:
 static void CTXFI_setrate (struct mpxplay_audioout_info_s *aui)
 {
   struct ctxfi_card_s *card = aui->card_private_data;
-  ctxfidbg("setrate\n");
-  //aui->freq_card = 22050;
+  int err;
+
+  ctxfidbg("setrate %u\n", aui->freq_card);
   if (aui->freq_card < 8000) {
     aui->freq_card = 8000;
   } else if (aui->freq_card > 192000) {
     aui->freq_card = 192000;
   }
-  aui->freq_card = 22050; // Force rate to 22050 for now
+  //aui->freq_card = 22050; // XXX
+  err = make_snd_pcm_substream(aui, card, &card->pcm_substream);
+  if (err) goto err_setrate;
   ct_pcm_playback_prepare(card->pcm_substream);
+  return;
+
+ err_setrate:
+  ctxfidbg("setrate error\n");
 }
 
 static void CTXFI_start (struct mpxplay_audioout_info_s *aui)
@@ -242,7 +255,7 @@ static long CTXFI_getbufpos (struct mpxplay_audioout_info_s *aui)
   unsigned long bufpos = ct_pcm_playback_pointer(card->pcm_substream);
   bufpos <<= 1;
 #if CTXFI_DEBUG > 1
-  if ((ctxfi_int_cnt % 9) == 0)
+  if ((ctxfi_int_cnt % 450) == 0)
     ctxfidbg("getbufpos %u / %u\n", bufpos, aui->card_dmasize);
   if (bufpos == aui->card_dmasize)
     ctxfidbg("getbufpos %u == dmasize\n", bufpos);
@@ -254,27 +267,59 @@ static long CTXFI_getbufpos (struct mpxplay_audioout_info_s *aui)
 
 static aucards_onemixerchan_s CTXFI_master_vol={AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME),2,{{0,15,4,0},{0,15,0,0}}};
 static aucards_allmixerchan_s CTXFI_mixerset[] = {
- &CTXFI_master_vol,
- NULL
+  &CTXFI_master_vol,
+  NULL
 };
 
 extern int ctxfi_alsa_mix_volume_get (struct ct_atc *atc, int type);
 extern int ctxfi_alsa_mix_volume_put (struct ct_atc *atc, int type, int val);
 
+enum CT_AMIXER_CTL {
+	/* volume control mixers */
+	AMIXER_MASTER_F,
+	AMIXER_MASTER_R,
+	AMIXER_MASTER_C,
+	AMIXER_MASTER_S,
+	AMIXER_PCM_F,
+	AMIXER_PCM_R,
+	AMIXER_PCM_C,
+	AMIXER_PCM_S,
+	AMIXER_SPDIFI,
+	AMIXER_LINEIN,
+	AMIXER_MIC,
+	AMIXER_SPDIFO,
+	AMIXER_WAVE_F,
+	AMIXER_WAVE_R,
+	AMIXER_WAVE_C,
+	AMIXER_WAVE_S,
+	AMIXER_MASTER_F_C,
+	AMIXER_PCM_F_C,
+	AMIXER_SPDIFI_C,
+	AMIXER_LINEIN_C,
+	AMIXER_MIC_C,
+
+	/* this should always be the last one */
+	NUM_CT_AMIXERS
+};
+
 static void CTXFI_writeMIXER (struct mpxplay_audioout_info_s *aui, unsigned long reg, unsigned long val)
 {
   struct ctxfi_card_s *card = aui->card_private_data;
+  ctxfidbg("write mixer val: %X\n", val);
   // warning: uses only one channel's volume
   unsigned int lval = (val & 15) << 4;
-  ctxfi_alsa_mix_volume_put(card->atc, reg, val);
+  ctxfi_alsa_mix_volume_put(card->atc, AMIXER_MASTER_F, 0x100); // set Master to MAX
+  ctxfi_alsa_mix_volume_put(card->atc, AMIXER_LINEIN, 0x100); // set Line-In to MAX
+  ctxfi_alsa_mix_volume_put(card->atc, AMIXER_PCM_F, lval); // Set PCM volume
 }
 
 static unsigned long CTXFI_readMIXER (struct mpxplay_audioout_info_s *aui, unsigned long reg)
 {
   struct ctxfi_card_s *card = aui->card_private_data;
-  unsigned int lval = ctxfi_alsa_mix_volume_get(card->atc, reg);
+  unsigned int lval = ctxfi_alsa_mix_volume_get(card->atc, AMIXER_PCM_F);
   unsigned long val = (lval >> 4) & 15;
   val |= (val << 4);
+  ctxfidbg("read mixer returning %X\n", val);
   return val;
 }
 
@@ -295,27 +340,27 @@ static int CTXFI_IRQRoutine (struct mpxplay_audioout_info_s *aui)
 }
 
 one_sndcard_info CTXFI_sndcard_info = {
- "CTXFI",
- SNDCARD_LOWLEVELHAND|SNDCARD_INT08_ALLOWED,
+  "CTXFI",
+  SNDCARD_LOWLEVELHAND|SNDCARD_INT08_ALLOWED,
 
- NULL,
- NULL,
- &CTXFI_adetect,
- &CTXFI_card_info,
- &CTXFI_start,
- &CTXFI_stop,
- &CTXFI_close,
- &CTXFI_setrate,
+  NULL,
+  NULL,
+  &CTXFI_adetect,
+  &CTXFI_card_info,
+  &CTXFI_start,
+  &CTXFI_stop,
+  &CTXFI_close,
+  &CTXFI_setrate,
 
- &MDma_writedata,
- &CTXFI_getbufpos,
- &MDma_clearbuf,
- &MDma_interrupt_monitor,
- &CTXFI_IRQRoutine,
+  &MDma_writedata,
+  &CTXFI_getbufpos,
+  &MDma_clearbuf,
+  &MDma_interrupt_monitor,
+  &CTXFI_IRQRoutine,
 
- &CTXFI_writeMIXER,
- &CTXFI_readMIXER,
- &CTXFI_mixerset[0]
+  &CTXFI_writeMIXER,
+  &CTXFI_readMIXER,
+  &CTXFI_mixerset[0]
 };
 
 #endif // AUCARDS_LINK_CTXFI

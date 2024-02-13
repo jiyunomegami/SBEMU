@@ -12,6 +12,7 @@
 #include "sound/control.h"
 
 #undef IO_DEBUG
+//#define IO_DEBUG 1
 
 void snd_sbmixer_write(struct snd_sb *chip, unsigned char reg, unsigned char data)
 {
@@ -20,10 +21,11 @@ void snd_sbmixer_write(struct snd_sb *chip, unsigned char reg, unsigned char dat
 	outb(data, SBP(chip, MIXER_DATA));
 	udelay(10);
 #ifdef IO_DEBUG
-	snd_printk(KERN_DEBUG "mixer_write 0x%x 0x%x\n", reg, data);
+	snd_printk(KERN_DEBUG "mixer_write (%X) 0x%x 0x%x\n", chip->port, reg, data);
 #endif
 }
 
+#undef IO_DEBUG
 unsigned char snd_sbmixer_read(struct snd_sb *chip, unsigned char reg)
 {
 	unsigned char result;
@@ -491,6 +493,7 @@ int snd_sbmixer_add_ctl(struct snd_sb *chip, const char *name, int index, int ty
 		return err;
 	return 0;
 }
+#endif
 
 /*
  * SB 2.0 specific mixer elements
@@ -578,7 +581,10 @@ static const struct sbmix_elem snd_sb16_controls[] = {
 		  SB_DSP4_TREBLE_DEV, (SB_DSP4_TREBLE_DEV + 1), 4, 4, 15)
 };
 
+#define INITVOL 31 // maximum volume
+
 static const unsigned char snd_sb16_init_values[][2] = {
+#if 0
 	{ SB_DSP4_MASTER_DEV + 0, 0 },
 	{ SB_DSP4_MASTER_DEV + 1, 0 },
 	{ SB_DSP4_PCM_DEV + 0, 0 },
@@ -589,6 +595,19 @@ static const unsigned char snd_sb16_init_values[][2] = {
 	{ SB_DSP4_INPUT_RIGHT, 0 },
 	{ SB_DSP4_OUTPUT_SW, 0 },
 	{ SB_DSP4_SPEAKER_DEV, 0 },
+#else
+	{ SB_DSP4_MASTER_DEV + 0, (INITVOL<<3) },
+	{ SB_DSP4_MASTER_DEV + 1, (INITVOL<<3) },
+	{ SB_DSP4_PCM_DEV + 0, (INITVOL<<3) },
+	{ SB_DSP4_PCM_DEV + 1, (INITVOL<<3) },
+	{ SB_DSP4_SYNTH_DEV + 0, (INITVOL<<3) },
+	{ SB_DSP4_SYNTH_DEV + 1, (INITVOL<<3) },
+	{ SB_DSP4_INPUT_LEFT, 0 },
+	{ SB_DSP4_INPUT_RIGHT, 0 },
+	//{ SB_DSP4_OUTPUT_SW, 0 },
+	{ SB_DSP4_OUTPUT_SW, (1<<4)|(1<<3) },
+	{ SB_DSP4_SPEAKER_DEV, (3<<6) },
+#endif
 };
 
 /*
@@ -674,6 +693,7 @@ static const struct sbmix_elem snd_als4000_controls[] = {
 };
 
 static const unsigned char snd_als4000_init_values[][2] = {
+#if 0
 	{ SB_DSP4_MASTER_DEV + 0, 0 },
 	{ SB_DSP4_MASTER_DEV + 1, 0 },
 	{ SB_DSP4_PCM_DEV + 0, 0 },
@@ -686,10 +706,37 @@ static const unsigned char snd_als4000_init_values[][2] = {
 	{ SB_DSP4_INPUT_RIGHT, 0 },
 	{ SB_DT019X_OUTPUT_SW2, 0 },
 	{ SB_ALS4000_MIC_IN_GAIN, 0 },
+#else
+	{ SB_DSP4_MASTER_DEV + 0, (INITVOL<<3) },
+	{ SB_DSP4_MASTER_DEV + 1, (INITVOL<<3) },
+	{ SB_DSP4_PCM_DEV + 0, (INITVOL<<3) },
+	{ SB_DSP4_PCM_DEV + 1, (INITVOL<<3) },
+	{ SB_DSP4_SYNTH_DEV + 0, (INITVOL<<3) },
+	{ SB_DSP4_SYNTH_DEV + 1, (INITVOL<<3) },
+	//{ SB_DSP4_SPEAKER_DEV, (3<<6) },
+	{ SB_DSP4_SPEAKER_DEV, 0 },
+	//{ SB_DSP4_OUTPUT_SW, 0 },
+	//{ SB_DSP4_OUTPUT_SW, (1<<4)|(1<<3) },
+	{ SB_DSP4_INPUT_LEFT, 0 },
+	{ SB_DSP4_INPUT_RIGHT, 0 },
+	//{ SB_DT019X_OUTPUT_SW2, 0 },
+	{ SB_DT019X_OUTPUT_SW2, (1<<4)|(1<<3)|(1<<2)|(1<<1) }, // Enable PCM and FM
+	{ SB_ALS4000_MIC_IN_GAIN, 0 },
+	//SB_DOUBLE("Playback Volume",
+        //SB_DSP4_OGAIN_DEV, (SB_DSP4_OGAIN_DEV + 1), 6, 6, 3),
+	//{ SB_DSP4_OGAIN_DEV + 0, (3<<6) },
+	//{ SB_DSP4_OGAIN_DEV + 1, (3<<6) },
+	//{ SB_DSP4_OGAIN_DEV + 0, (2<<6) },
+	//{ SB_DSP4_OGAIN_DEV + 1, (2<<6) },
+        { SB_DSP4_OGAIN_DEV + 0, 0 },
+	{ SB_DSP4_OGAIN_DEV + 1, 0 },
+        // 3d stuff:
+	//{ 0x50, 0xb7 },
+	//{ 0x51, 0xf },
+        { SB_ALS4000_FMDAC, 0x0 },
+#endif
 };
 
-/*
- */
 static int snd_sbmixer_init(struct snd_sb *chip,
 			    const struct sbmix_elem *controls,
 			    int controls_count,
@@ -710,17 +757,40 @@ static int snd_sbmixer_init(struct snd_sb *chip,
 	for (idx = 0; idx < map_count; idx++) {
 		spin_lock_irqsave(&chip->mixer_lock, flags);
 		snd_sbmixer_write(chip, map[idx][0], map[idx][1]);
+		//uint8_t rval = snd_sbmixer_read(chip, map[idx][0]);
+		//printk(" mixer wrote to %X: %X  -> read %X\n", map[idx][0], map[idx][1], rval);
 		spin_unlock_irqrestore(&chip->mixer_lock, flags);
 	}
 
+#if 0
 	for (idx = 0; idx < controls_count; idx++) {
 		err = snd_sbmixer_add_ctl_elem(chip, &controls[idx]);
 		if (err < 0)
 			return err;
 	}
 	snd_component_add(card, name);
+#endif
 	strcpy(card->mixername, name);
 	return 0;
+}
+
+void
+als4000_mixer_init (struct snd_sb *chip)
+{
+    int err;
+    /* use only the first 16 controls from SB16 */
+    err = snd_sbmixer_init(chip,
+                           snd_sb16_controls,
+                           16,
+                           snd_sb16_init_values,
+                           ARRAY_SIZE(snd_sb16_init_values),
+                           "ALS4000");
+    err = snd_sbmixer_init(chip,
+                           snd_als4000_controls,
+                           ARRAY_SIZE(snd_als4000_controls),
+                           snd_als4000_init_values,
+                           ARRAY_SIZE(snd_als4000_init_values),
+                           "ALS4000");
 }
 
 int snd_sbmixer_new(struct snd_sb *chip)
@@ -949,6 +1019,4 @@ void snd_sbmixer_resume(struct snd_sb *chip)
 		break;
 	}
 }
-#endif
-
 #endif

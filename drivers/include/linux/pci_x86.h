@@ -11,11 +11,9 @@
 //#include <linux/ioport.h>
 #include "linux/spinlock.h"
 
-#undef DEBUG
-#define DEBUG 1
 #define CONFIG_PCI_DIRECT 1
 
-#ifdef DEBUG
+#if PCI_DEBUG
 #define DBG(fmt, ...) printk(fmt, ##__VA_ARGS__)
 #else
 #define DBG(fmt, ...)				\

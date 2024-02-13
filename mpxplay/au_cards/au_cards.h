@@ -299,7 +299,7 @@ extern void AU_wait_and_stop(struct mpxplay_audioout_info_s *);
 extern void AU_stop(struct mpxplay_audioout_info_s *);
 extern void AU_suspend_decoding(struct mpxplay_audioout_info_s *aui);
 extern void AU_resume_decoding(struct mpxplay_audioout_info_s *aui);
-extern void AU_close(struct mpxplay_audioout_info_s *);
+extern void AU_close(struct mpxplay_audioout_info_s *aui,struct mpxplay_audioout_info_s *fm_aui,struct mpxplay_audioout_info_s *mpu401_aui);
 extern void AU_setrate(struct mpxplay_audioout_info_s *aui,struct mpxplay_audio_decoder_info_s *adi);
 extern void AU_setmixer_init(struct mpxplay_audioout_info_s *aui);
 extern void AU_setmixer_one(struct mpxplay_audioout_info_s *,unsigned int mixch,unsigned int setmode,int value);

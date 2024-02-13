@@ -261,10 +261,6 @@ struct device {
   int refcnt;
 };
 
-//static inline void device_initialize(struct device *dev) {
-//  memset(dev, 0, sizeof(*dev));
-//}
-
 #define device_trylock(x) 1
 #define device_unlock(x)
 
@@ -1239,7 +1235,7 @@ static inline int pci_disable_device (struct pci_dev *pcidev) {
  return 0; // XXX
 }
 static inline void pci_set_master (struct pci_dev *pcidev) {
- pcibios_enable_memmap_set_master_all(pcidev->pcibios_dev);
+  pcibios_set_master(pcidev->pcibios_dev);
 }
 
 static inline unsigned int pci_resource_start (struct pci_dev *pcidev, int bar_index) {

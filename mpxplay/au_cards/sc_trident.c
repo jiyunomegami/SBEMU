@@ -74,7 +74,6 @@ make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct trident_card
   if (!runtime->dma_buffer_p) {
     goto err;
   }
-  aui->freq_card = 22050;
 #define PCMBUFFERPAGESIZE 512
   aui->chan_card = 2;
   aui->bits_card = 16;
@@ -91,7 +90,7 @@ make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct trident_card
   }
   tridentdbg("DMA buffer: size %u physical address: %8.8X\n", dmabuffsize, runtime->dma_buffer_p->addr);
   int retry_idx = 0, max_tries = 20;
-  struct snd_dma_buffer *dmabuffers[100];
+  struct snd_dma_buffer *dmabuffers[20];
   if (runtime->dma_buffer_p->addr >= 0x40000000) {
     dmabuffers[0] = runtime->dma_buffer_p;
     runtime->dma_buffer_p = NULL;
@@ -184,8 +183,17 @@ extern void snd_trident_free(struct snd_trident *trident);
 
 static void TRIDENT_close (struct mpxplay_audioout_info_s *aui)
 {
+  tridentdbg("close");
   struct trident_card_s *card = aui->card_private_data;
   if (card) {
+    if (card->pcm_substream) {
+      if (card->pcm_substream->runtime) {
+        if (card->pcm_substream->runtime->dma_buffer_p)
+          snd_dma_free_pages(card->pcm_substream->runtime->dma_buffer_p);
+        kfree(card->pcm_substream->runtime);
+      }
+      kfree(card->pcm_substream);
+    }
     if (card->trident)
       snd_trident_free(card->trident);
     if (card->pci_dev)
@@ -256,14 +264,18 @@ static int TRIDENT_adetect (struct mpxplay_audioout_info_s *aui)
   if (err < 0)
     goto err_adetect;
 
-  aui->mpu401_port = trident->midi_port;
-  aui->mpu401 = 1;
   card->linux_snd_card->private_data = trident;
   card->trident = trident;
 
-  aui->freq_card = 22050;
-  err = make_snd_pcm_substream(aui, card, &card->pcm_substream);
-  if (err) goto err_adetect;
+  if (!aui->card_select_index_mpu401 || aui->card_select_index_mpu401 == aui->card_test_index) {
+    aui->mpu401_port = trident->midi_port;
+    aui->mpu401 = 1;
+  }
+  if (!aui->card_select_index_mpu401 && !(!aui->card_select_index || aui->card_select_index == aui->card_test_index)) {
+    aui->mpu401_port = 0;
+    aui->mpu401 = 0;
+  }
+
   tridentdbg("TRIDENT : %s (%4.4X) IRQ %u\n", card->pci_dev->device_name, card->pci_dev->device_id, card->irq);
 
   return 1;
@@ -276,14 +288,22 @@ err_adetect:
 static void TRIDENT_setrate (struct mpxplay_audioout_info_s *aui)
 {
   struct trident_card_s *card = aui->card_private_data;
+  int err;
+
   tridentdbg("setrate %u\n", aui->freq_card);
   if (aui->freq_card < 4000) {
     aui->freq_card = 4000;
   } else if (aui->freq_card > 48000) {
     aui->freq_card = 48000;
   }
-  aui->freq_card = 22050; // Force rate to 22050 for now
+  err = make_snd_pcm_substream(aui, card, &card->pcm_substream);
+  if (err) goto err_setrate;
+
   snd_trident_playback_prepare(card->pcm_substream);
+  return;
+
+ err_setrate:
+  tridentdbg("setrate error\n");
 }
 
 static void TRIDENT_start (struct mpxplay_audioout_info_s *aui)
@@ -321,8 +341,8 @@ static long TRIDENT_getbufpos (struct mpxplay_audioout_info_s *aui)
 
 static aucards_onemixerchan_s TRIDENT_master_vol={AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME),2,{{0,15,4,0},{0,15,0,0}}};
 static aucards_allmixerchan_s TRIDENT_mixerset[] = {
- &TRIDENT_master_vol,
- NULL
+  &TRIDENT_master_vol,
+  NULL
 };
 
 extern u16 snd_trident_ac97_read (struct snd_card *card, u16 reg);
@@ -371,32 +391,32 @@ static int TRIDENT_IRQRoutine (struct mpxplay_audioout_info_s *aui)
 }
 
 one_sndcard_info TRIDENT_sndcard_info = {
- "TRIDENT",
- SNDCARD_LOWLEVELHAND|SNDCARD_INT08_ALLOWED,
+  "TRIDENT",
+  SNDCARD_LOWLEVELHAND|SNDCARD_INT08_ALLOWED,
 
- NULL,
- NULL,
- &TRIDENT_adetect,
- &TRIDENT_card_info,
- &TRIDENT_start,
- &TRIDENT_stop,
- &TRIDENT_close,
- &TRIDENT_setrate,
+  NULL,
+  NULL,
+  &TRIDENT_adetect,
+  &TRIDENT_card_info,
+  &TRIDENT_start,
+  &TRIDENT_stop,
+  &TRIDENT_close,
+  &TRIDENT_setrate,
 
- &MDma_writedata,
- &TRIDENT_getbufpos,
- &MDma_clearbuf,
- &MDma_interrupt_monitor,
- &TRIDENT_IRQRoutine,
+  &MDma_writedata,
+  &TRIDENT_getbufpos,
+  &MDma_clearbuf,
+  &MDma_interrupt_monitor,
+  &TRIDENT_IRQRoutine,
 
- &TRIDENT_writeMIXER,
- &TRIDENT_readMIXER,
- &TRIDENT_mixerset[0],
+  &TRIDENT_writeMIXER,
+  &TRIDENT_readMIXER,
+  &TRIDENT_mixerset[0],
 
- NULL,
- NULL,
- &ioport_mpu401_write,
- &ioport_mpu401_read,
+  NULL,
+  NULL,
+  &ioport_mpu401_write,
+  &ioport_mpu401_read,
 };
 
 #endif // AUCARDS_LINK_TRIDENT

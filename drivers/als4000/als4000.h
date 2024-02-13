@@ -104,21 +104,6 @@ static inline u32 snd_als4k_iobase_readl(unsigned long iobase,
 	return inl(iobase + reg);
 }
 
-static inline void snd_als4k_gcr_write_addr(unsigned long iobase,
-						 enum als4k_gcr_t reg,
-						 u32 val)
-{
-	snd_als4k_iobase_writeb(iobase, ALS4K_IOB_0C_GCR_INDEX, reg);
-	snd_als4k_iobase_writel(iobase, ALS4K_IOD_08_GCR_DATA, val);
-}
-
-static inline void snd_als4k_gcr_write(struct snd_sb *sb,
-					 enum als4k_gcr_t reg,
-					 u32 val)
-{
-	snd_als4k_gcr_write_addr(sb->alt_port, reg, val);
-}	
-
 static inline u32 snd_als4k_gcr_read_addr(unsigned long iobase,
 						 enum als4k_gcr_t reg)
 {
@@ -131,6 +116,23 @@ static inline u32 snd_als4k_gcr_read(struct snd_sb *sb, enum als4k_gcr_t reg)
 {
 	return snd_als4k_gcr_read_addr(sb->alt_port, reg);
 }
+
+static inline void snd_als4k_gcr_write_addr(unsigned long iobase,
+						 enum als4k_gcr_t reg,
+						 u32 val)
+{
+	snd_als4k_iobase_writeb(iobase, ALS4K_IOB_0C_GCR_INDEX, reg);
+	snd_als4k_iobase_writel(iobase, ALS4K_IOD_08_GCR_DATA, val);
+	//printk("als wr addr %X : %X\n", reg, val);
+	//printk("als %X wrote %X read %X\n", reg, val, snd_als4k_gcr_read_addr(iobase, reg));
+}
+
+static inline void snd_als4k_gcr_write(struct snd_sb *sb,
+					 enum als4k_gcr_t reg,
+					 u32 val)
+{
+	snd_als4k_gcr_write_addr(sb->alt_port, reg, val);
+}	
 
 enum als4k_cr_t { /* all registers 8bit wide; SPECS_PAGE: 20 to 23 */
 	ALS4K_CR0_SB_CONFIG = 0x00,
