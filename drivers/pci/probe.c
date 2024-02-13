@@ -644,6 +644,7 @@ struct pci_host_bridge *pci_alloc_host_bridge(size_t priv)
 {
 	struct pci_host_bridge *bridge;
 
+	udelay(1); // XXX need delay here with --flto=auto
 	bridge = kzalloc(sizeof(*bridge) + priv, GFP_KERNEL);
 	if (!bridge)
 		return NULL;
@@ -3122,12 +3123,17 @@ struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
 	int error;
 	struct pci_host_bridge *bridge;
 
+ l0: // drivers/pci/probe.c:3132 00AF:00007288
 	bridge = pci_alloc_host_bridge(0);
+ l1: // drivers/pci/probe.c:3134 00AF:000072DA
 	if (!bridge)
 		return NULL;
-
+        // segfault at 72cf with -flto=auto
+ l2: // drivers/pci/probe.c:3133 00AF:000072DA
 	bridge->dev.parent = parent;
 
+        //LHERE(l1);
+        //HEREL(h);
 	list_splice_init(resources, &bridge->windows);
 	bridge->sysdata = sysdata;
 	bridge->busnr = bus;
