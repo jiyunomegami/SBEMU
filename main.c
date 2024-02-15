@@ -371,6 +371,7 @@ QEMM_IOPT MAIN_SB_IOPT_PM;
 
 #define MAIN_SETCMD_SET 0x01 //set in command line
 #define MAIN_SETCMD_HIDDEN 0x02 //hidden flag on report
+#define MAIN_SETCMD_BASE10 0x04 //use decimal value (default hex)
 
 struct MAIN_OPT
 {
@@ -399,12 +400,12 @@ struct MAIN_OPT
     "/O", "Select output. 0: headphone, 1: speaker (Intel HDA) or S/PDIF (Xonar DG)", 1, 0,
     "/VOL", "Set master volume (0-9)", 7, 0,
 
-    "/K", "Internal sample rate (22050 or 44100 or 48000)", 22050, 0,
+    "/K", "Internal sample rate (default 22050)", 22050, MAIN_SETCMD_BASE10,
     "/FIXTC", "Fix time constant to match 11/22/44 kHz sample rate", FALSE, 0,
     "/SCL", "List installed sound cards", 0, MAIN_SETCMD_HIDDEN,
-    "/SCFM", "Select FM(OPL) sound card index in list (/SCL)", 0, MAIN_SETCMD_HIDDEN,
-    "/SCMPU", "Select MPU-401 sound card index in list (/SCL)", 0, MAIN_SETCMD_HIDDEN,
-    "/SC", "Select sound card index in list (/SCL)", 0, MAIN_SETCMD_HIDDEN,
+    "/SCFM", "Select FM(OPL) sound card index in list (/SCL)", 0, MAIN_SETCMD_HIDDEN|MAIN_SETCMD_BASE10,
+    "/SCMPU", "Select MPU-401 sound card index in list (/SCL)", 0, MAIN_SETCMD_HIDDEN|MAIN_SETCMD_BASE10,
+    "/SC", "Select sound card index in list (/SCL)", 0, MAIN_SETCMD_HIDDEN|MAIN_SETCMD_BASE10,
     "/R", "Reset sound card driver", 0, MAIN_SETCMD_HIDDEN,
     "/P", "UART mode MPU-401 IO address (default 330) [*]", 0x330, 0,
     "/MCOM", "UART mode MPU-401 COM port (1=COM1, 2=COM2, 3=COM3, 4=COM4, 9:HW MPU only, otherwise base address)", 9, 0,
@@ -660,7 +661,7 @@ int main(int argc, char* argv[])
             if(memicmp(argv[i], MAIN_Options[j].option, len) == 0)
             {
                 int arglen = strlen(argv[i]);
-                int base = opt_base(j);
+                int base = (MAIN_Options[j].setcmd&MAIN_SETCMD_BASE10) ? 10 : 16;
                 MAIN_Options[j].value = arglen == len ? 1 : strtol(&argv[i][len], NULL, base);
                 MAIN_Options[j].setcmd |= MAIN_SETCMD_SET;
                 break;
@@ -718,7 +719,6 @@ int main(int argc, char* argv[])
         printf("Error: Invalid Volume.\n");
         return 1;
     }
-    //if(MAIN_Options[OPT_RATE].value != 22050 && MAIN_Options[OPT_RATE].value != 44100 && MAIN_Options[OPT_RATE].value != 48000)
     if(MAIN_Options[OPT_RATE].value < 4000 || MAIN_Options[OPT_RATE].value > 192000)
     {
         printf("Error: Invalid Sample rate.\n");
@@ -833,7 +833,7 @@ int main(int argc, char* argv[])
     if(aui.card_irq <= 0x07) //SBPCI/CMI use irq 5/7 to gain DOS compatility?
     {
         printf("WARNING: Low IRQ %d used for sound card, higher IRQ number(8~15) is recommended.\n", aui.card_irq);
-        //TODO: do we need to do this? 
+        //TODO: do we need to do this?
         #if 0
         printf("Trying to enable Level triggered mode...");
         if(aui.card_irq > 2) //don't use level triggering for legacy ISA IRQ (timer/kbd etc)
@@ -876,7 +876,7 @@ int main(int argc, char* argv[])
         if(enablePM && !(OPLPMInstalled=HDPMIPT_Install_IOPortTrap(0x388, 0x38B, iodt, 4, &OPL3IOPT_PM)))
         {
             printf("Error: Failed installing IO port trap for HDPMI.\n");
-            return 1;          
+            return 1;
         }
 
         //OPL3EMU_Init(aui.freq_card);
@@ -888,7 +888,7 @@ int main(int argc, char* argv[])
         printf("OPL3 %s%s at port 388: ", emutype, hwdesc);
         MAIN_Print_Enabled_Newline(true);
     }
-    
+
     if(MAIN_Options[OPT_MPUADDR].value && MAIN_Options[OPT_MPUCOMPORT].value)
     {
         for(int i = 0; i < countof(MAIN_MPUIODT); ++i) MAIN_MPUIODT[i].port = MAIN_Options[OPT_MPUADDR].value+i;
@@ -1024,7 +1024,7 @@ int main(int argc, char* argv[])
     BOOL TSR = TRUE;
     if(!PM_ISR || !RM_ISR || !TSR_ISR
     || !QEMMInstalledVDMA || !QEMMInstalledVIRQ || !QEMMInstalledSB
-    || !HDPMIInstalledVDMA1 || !HDPMIInstalledVDMA2 || !HDPMIInstalledVDMA3 || !HDPMIInstalledVHDMA1 || !HDPMIInstalledVHDMA2 || !HDPMIInstalledVHDMA3 
+    || !HDPMIInstalledVDMA1 || !HDPMIInstalledVDMA2 || !HDPMIInstalledVDMA3 || !HDPMIInstalledVHDMA1 || !HDPMIInstalledVHDMA2 || !HDPMIInstalledVHDMA3
     || !HDPMIInstalledVIRQ1 || !HDPMIInstalledVIRQ2 || !HDPMIInstalledSB
     || !(TSR=DPMI_TSR()))
     {
@@ -1092,11 +1092,11 @@ static void MAIN_InterruptPM()
     //don't send EOI on default handler in IVT.
     //
     //it has one problem that if other drivers (shared IRQ) enables interrupts (because it needs wait or is time consuming)
-    //then because we're still in MAIN_InterruptPM, so MAIN_InterruptPM is never enterred agian (guarded by go32 or MAIN_ININT_PM), 
+    //then because we're still in MAIN_InterruptPM, so MAIN_InterruptPM is never enterred agian (guarded by go32 or MAIN_ININT_PM),
     //so the newly coming irq will never be processed and the IRQ will flood the system (freeze)
     //an alternative chained methods will EXIT MAIN_InterruptPM FIRST and calls next handler, which will avoid this case, see @MAIN_ISR_CHAINED
     //but we need a hack if the default handler in IVT doesn't send EOI or masks the irq - this is done in the RM final wrapper, see @DPMI_RMISR_ChainedWrapper
-    
+
     //MAIN_IntContext.EFLAGS |= (MAIN_InINT&MAIN_ININT_RM) ? (MAIN_IntContext.EFLAGS&CPU_VMFLAG) : 0;
     HDPMIPT_GetInterrupContext(&MAIN_IntContext);
     if(/*!(MAIN_InINT&MAIN_ININT_RM) && */aui.card_handler->irq_routine && aui.card_handler->irq_routine(&aui)) //check if the irq belong the sound card
@@ -1123,11 +1123,11 @@ static void MAIN_InterruptRM()
     const uint8_t irq = PIC_GetIRQ();
     if(irq != aui.card_irq) //shared IRQ handled by other handlers(EOI sent) or new irq arrived after EOI but not for us
         return;
-    
+
     //if(MAIN_InINT&MAIN_ININT_RM) return; //skip reentrance. go32 will do this so actually we don't need it
     //DBG_Log("INTRM %d\n", MAIN_InINT);
     MAIN_InINT |= MAIN_ININT_RM;
-    
+
     if(/*!(MAIN_InINT&MAIN_ININT_PM) && */aui.card_handler->irq_routine && aui.card_handler->irq_routine(&aui)) //check if the irq belong the sound card
     {
         MAIN_IntContext.regs = MAIN_RMIntREG;
@@ -1151,7 +1151,7 @@ static void MAIN_Interrupt()
 {
     if(!(aui.card_infobits&AUINFOS_CARDINFOBIT_PLAYING))
         return;
-        
+
     if(SBEMU_IRQTriggered())
     {
         MAIN_InvokeIRQ(SBEMU_GetIRQ());
@@ -1200,7 +1200,7 @@ static void MAIN_Interrupt()
     //_LOG("samples:%d\n",samples);
     if(samples == 0)
         return;
-    
+
     BOOL digital = SBEMU_HasStarted();
     int dma = (SBEMU_GetBits() <= 8 || MAIN_Options[OPT_TYPE].value < 6) ? SBEMU_GetDMA() : SBEMU_GetHDMA();
     int32_t DMA_Count = VDMA_GetCounter(dma); //count in bytes
@@ -1291,7 +1291,7 @@ static void MAIN_Interrupt()
                 if(!SBEMU_GetAuto())
                     SBEMU_Stop();
                 SB_Pos = SBEMU_SetPos(0);
-                
+
                 MAIN_InvokeIRQ(SBEMU_GetIRQ());
                 if(SB_Bytes <= 32) //detection routine?
                 {
@@ -1301,7 +1301,7 @@ static void MAIN_Interrupt()
                     SBEMU_SetDetectionCounter(c);
                     break; //fix crash in virtualbox.
                 }
-                
+
                 SB_Bytes = SBEMU_GetSampleBytes();
                 SB_Pos = SBEMU_GetPos();
                 SB_Rate = SBEMU_GetSampleRate();
@@ -1415,7 +1415,7 @@ void MAIN_TSR_InstallationCheck()
             {
                 if((MAIN_Options[j].setcmd==MAIN_SETCMD_SET) && MAIN_Options[j].value != opt[j].value)
                 {
-                    printf(opt_base(j) == 10 ? "%s changed from %d to %d\n" : "%s changed from %x to %x\n",
+                    printf((MAIN_Options[j].setcmd&MAIN_SETCMD_BASE10) ? "%s changed from %d to %d\n" : "%s changed from %x to %x\n",
                            MAIN_Options[j].option, opt[j].value, MAIN_Options[j].value);
                     opt[j].value = MAIN_Options[j].value;
                 }
@@ -1443,7 +1443,7 @@ void MAIN_TSR_InstallationCheck()
             {
                 int base = opt_base(i);
                 if(!(MAIN_Options[i].setcmd&MAIN_SETCMD_HIDDEN))
-                    printf(base==10?"%-8s: %d\n":"%-8s: %x\n", MAIN_Options[i].option, opt[i].value);
+                    printf( (MAIN_Options[i].setcmd&MAIN_SETCMD_BASE10) ? "%-8s: %d\n":"%-8s: %x\n", MAIN_Options[i].option, opt[i].value);
             }
             free(opt);
             exit(0);
@@ -1582,7 +1582,7 @@ static void MAIN_TSR_Interrupt()
                 free(opt);
                 return;
             }
-            
+
             //re-install all
             if(MAIN_Options[OPT_RM].value)
             {

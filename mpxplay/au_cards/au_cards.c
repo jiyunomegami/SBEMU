@@ -585,7 +585,7 @@ void AU_ini_interrupts(struct mpxplay_audioout_info_s *aui)
   if(intsoundconfig&INTSOUND_NOBUSYWAIT){
     aucards_writedata_func = &aucards_writedata_nowait;
   }
-  #endif 
+  #endif
 }
 
 void AU_del_interrupts(struct mpxplay_audioout_info_s *aui)
