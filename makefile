@@ -9,8 +9,10 @@ VERSION ?= $(shell git describe --tags)
 
 INCLUDES := -I./mpxplay -I./sbemu -I./drivers/include
 DEFINES := -D__DOS__ -DSBEMU -DDEBUG=$(DEBUG) -DYSBEMU_CONFIG_UTIL=$(YSBEMU_CONFIG_UTIL) -DUSE_LINUX_PCI=$(USE_LINUX_PCI) -DMAIN_SBEMU_VER=\"$(VERSION)\"
-CFLAGS := -fcommon -march=i386 -O2 -flto=auto -Wno-attributes $(INCLUDES) $(DEFINES)
-LDFLAGS := -lstdc++ -lm -save-temps
+
+DRIVERS_CFLAGS := -fcommon -march=i386 -Os -flto=auto $(INCLUDES) $(DEFINES)
+CFLAGS := -fcommon -march=i386 -Os -flto=auto -Wno-attributes $(INCLUDES) $(DEFINES)
+LDFLAGS := -lstdc++ -lm
 
 ifeq ($(DEBUG),0)
 LDFLAGS += -s
@@ -134,7 +136,12 @@ $(TARGET): $(OBJS)
 output/drivers/pci/%.o: drivers/pci/%.c
 	@mkdir -p $(dir $@)
 	$(SILENTMSG) "CC\t$@\n"
-	$(SILENTCMD)$(CC) $(CFLAGS) -DUSE_LINUX_PCIBIOS=1 -c $< -o $@
+	$(SILENTCMD)$(CC) $(DRIVERS_CFLAGS) -DUSE_LINUX_PCIBIOS=1 -c $< -o $@
+
+output/drivers/%.o: drivers/%.c
+	@mkdir -p $(dir $@)
+	$(SILENTMSG) "CC\t$@\n"
+	$(SILENTCMD)$(CC) $(DRIVERS_CFLAGS) -c $< -o $@
 
 output/%.o: %.c
 	@mkdir -p $(dir $@)
