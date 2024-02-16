@@ -11,8 +11,13 @@ INCLUDES := -I./mpxplay -I./sbemu -I./drivers/include
 DEFINES := -D__DOS__ -DSBEMU -DDEBUG=$(DEBUG) -DYSBEMU_CONFIG_UTIL=$(YSBEMU_CONFIG_UTIL) -DUSE_LINUX_PCI=$(USE_LINUX_PCI) -DMAIN_SBEMU_VER=\"$(VERSION)\"
 
 DRIVERS_CFLAGS := -fcommon -march=i386 -Os -flto=auto $(INCLUDES) $(DEFINES)
-CFLAGS := -fcommon -march=i386 -Os -flto=auto -Wno-attributes $(INCLUDES) $(DEFINES)
-LDFLAGS := -lstdc++ -lm
+AU_BASE_CFLAGS := -fcommon -march=i386 -Os -flto  $(INCLUDES) $(DEFINES)
+AU_CFLAGS := -fcommon -march=i386 -O2 -flto $(INCLUDES) $(DEFINES)
+SC_CFLAGS := -fcommon -march=i386 -O2 -flto $(INCLUDES) $(DEFINES)
+MPXPLAY_CFLAGS := -fcommon -march=i386 -O2 -flto $(INCLUDES) $(DEFINES)
+SBEMU_CFLAGS := -fcommon -march=i386 -O2 -flto $(INCLUDES) $(DEFINES)
+CFLAGS := -fcommon -march=i386 -O2 -flto $(INCLUDES) $(DEFINES)
+LDFLAGS := -lstdc++ -lm -Wno-attributes
 
 ifeq ($(DEBUG),0)
 LDFLAGS += -s
@@ -142,6 +147,31 @@ output/drivers/%.o: drivers/%.c
 	@mkdir -p $(dir $@)
 	$(SILENTMSG) "CC\t$@\n"
 	$(SILENTCMD)$(CC) $(DRIVERS_CFLAGS) -c $< -o $@
+
+output/mpxplay/au_cards/sc_%.o: mpxplay/au_cards/sc_%.c
+	@mkdir -p $(dir $@)
+	$(SILENTMSG) "CC\t$@\n"
+	$(SILENTCMD)$(CC) $(SC_CFLAGS) -c $< -o $@
+
+output/mpxplay/au_cards/au_base.o: mpxplay/au_cards/au_base.c
+	@mkdir -p $(dir $@)
+	$(SILENTMSG) "CC\t$@\n"
+	$(CC) $(AU_BASE_CFLAGS) -c $< -o $@
+
+output/mpxplay/au_cards/au_%.o: mpxplay/au_cards/au_%.c
+	@mkdir -p $(dir $@)
+	$(SILENTMSG) "CC\t$@\n"
+	$(SILENTCMD)$(CC) $(AU_CFLAGS) -c $< -o $@
+
+output/mpxplay/%.o: mpxplay/%.c
+	@mkdir -p $(dir $@)
+	$(SILENTMSG) "CC\t$@\n"
+	$(SILENTCMD)$(CC) $(MPXPLAY_CFLAGS) -c $< -o $@
+
+output/sbemu/%.o: sbemu/%.c
+	@mkdir -p $(dir $@)
+	$(SILENTMSG) "CC\t$@\n"
+	$(SILENTCMD)$(CC) $(SBEMU_CFLAGS) -c $< -o $@
 
 output/%.o: %.c
 	@mkdir -p $(dir $@)
