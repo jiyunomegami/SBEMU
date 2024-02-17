@@ -151,7 +151,7 @@ uint16_t xonar_stereo_volume_get (struct snd_card *card)
 	struct oxygen *chip = card->private_data;
 	struct dg *data = chip->model_data;
 	unsigned int tmp;
-        uint16_t val;
+        uint16_t val = 0;
 
 	mutex_lock(&chip->mutex);
 	tmp = (~data->cs4245_shadow[CS4245_DAC_A_CTRL]) & 255;

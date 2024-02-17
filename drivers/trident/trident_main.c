@@ -3058,7 +3058,9 @@ static int snd_trident_mixer(struct snd_trident *trident, int pcm_spdif_device)
 	struct snd_ac97_template _ac97;
 	struct snd_card *card = trident->card;
 	struct snd_kcontrol *kctl;
+#if 0
 	struct snd_ctl_elem_value *uctl;
+#endif
 	int idx, err, retries = 2;
 #if 0
 	static struct snd_ac97_bus_ops ops = {
@@ -3215,7 +3217,9 @@ static int snd_trident_mixer(struct snd_trident *trident, int pcm_spdif_device)
 	err = -ENOMEM;
 
  __out:
+#if 0
 	kfree(uctl);
+#endif
 
 	return err;
 }

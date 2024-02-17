@@ -1323,7 +1323,7 @@ static inline int snd_pcm_lib_malloc_pages (struct snd_pcm_substream *substream,
       return -ENOMEM;
     }
     dmab->private_data = dm;
-    dmab->area = dm->linearptr;
+    dmab->area = (unsigned char *)dm->linearptr;
     dmab->addr = (dma_addr_t)pds_cardmem_physicalptr(dm, dm->linearptr);
     dmab->bytes = size;
     dmab->dev.type = substream->dma_buffer.dev.type;
@@ -1622,7 +1622,7 @@ static inline int snd_pcm_set_managed_buffer(struct snd_pcm_substream *substream
       return -ENOMEM;
     }
     dmab->private_data = dm;
-    dmab->area = dm->linearptr;
+    dmab->area = (unsigned char *)dm->linearptr;
     dmab->addr = (dma_addr_t)pds_cardmem_physicalptr(dm, dm->linearptr);
     dmab->bytes = size;
     dmab->dev.type = substream->dma_buffer.dev.type;

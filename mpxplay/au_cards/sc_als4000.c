@@ -57,7 +57,7 @@ make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct als4000_card
 
   substream = kzalloc(sizeof(*substream), GFP_KERNEL);
   if (!substream) {
-    goto err;
+    return -1;
   }
   substream->ops = &snd_als4000_playback_ops;
   substream->pcm = kzalloc(sizeof(struct snd_pcm), GFP_KERNEL);
@@ -142,7 +142,7 @@ make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct als4000_card
   als4000dbg("diff: %u (%X)\n", diff, diff);
   runtime->dma_buffer_p->area += diff;
 #endif
-  aui->card_DMABUFF = runtime->dma_buffer_p->area;
+  aui->card_DMABUFF = (char *)runtime->dma_buffer_p->area;
   dmabuffsize = MDma_init_pcmoutbuf(aui, dmabuffsize, PCMBUFFERPAGESIZE, 0);
   snd_pcm_set_runtime_buffer(substream, runtime->dma_buffer_p);
   runtime->buffer_size = dmabuffsize >> 1; // ???
@@ -168,7 +168,7 @@ make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct als4000_card
   return 0;
 
  err:
-  if (runtime->dma_buffer_p) snd_dma_free_pages(runtime->dma_buffer_p);
+  if (runtime && runtime->dma_buffer_p) snd_dma_free_pages(runtime->dma_buffer_p);
   if (runtime) kfree(runtime);
   if (substream) kfree(substream);
   return -1;

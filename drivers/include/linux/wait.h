@@ -229,6 +229,7 @@ __remove_wait_queue(struct wait_queue_head *wq_head, struct wait_queue_entry *wq
 
 //int __wake_up(struct wait_queue_head *wq_head, unsigned int mode, int nr, void *key);
 static inline int __wake_up(struct wait_queue_head *wq_head, unsigned int mode, int nr, void *key) {
+  return 0;
 }
 void __wake_up_on_current_cpu(struct wait_queue_head *wq_head, unsigned int mode, void *key);
 void __wake_up_locked_key(struct wait_queue_head *wq_head, unsigned int mode, void *key);

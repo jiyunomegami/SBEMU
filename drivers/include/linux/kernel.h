@@ -349,8 +349,7 @@ unsigned long *bitmap_zalloc_node(unsigned int nbits, gfp_t flags, int node);
 void bitmap_free(const unsigned long *bitmap);
 
 // linux/minmax.h:
-//#define __safe_cmp(x, y)                                      \
-//                (__typecheck(x, y) && __no_side_effects(x, y))
+//#define __safe_cmp(x, y) (__typecheck(x, y) && __no_side_effects(x, y))
 #define __cmp(x, y, op) ((x) op (y) ? (x) : (y))
 #define __safe_cmp __cmp
 #define __careful_cmp __cmp

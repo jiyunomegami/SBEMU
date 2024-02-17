@@ -2192,10 +2192,12 @@ int pcim_enable_device(struct pci_dev *pdev)
 #endif
 
 	rc = pci_enable_device(pdev);
+#if 0
 	if (!rc) {
 		pdev->is_managed = 1;
 		dr->enabled = 1;
 	}
+#endif
 	return rc;
 }
 EXPORT_SYMBOL(pcim_enable_device);

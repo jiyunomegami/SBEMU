@@ -164,7 +164,7 @@ static inline int snd_dma_alloc_pages (int type, struct device *device, size_t s
     return -ENOMEM;
   }
   dmab->private_data = dm;
-  dmab->area = dm->linearptr;
+  dmab->area = (unsigned char *)dm->linearptr;
   //dmab->addr = (dma_addr_t)dm->physicalptr;
   dmab->addr = (dma_addr_t)pds_cardmem_physicalptr(dm, dm->linearptr);
   dmab->bytes = size;

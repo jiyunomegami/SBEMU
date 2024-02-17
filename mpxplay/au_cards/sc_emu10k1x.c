@@ -48,7 +48,7 @@ make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct emu10k1x_car
 
   substream = kzalloc(sizeof(*substream), GFP_KERNEL);
   if (!substream) {
-    goto err;
+    return -1;
   }
   substream->ops = &snd_emu10k1x_playback_ops;
   substream->pcm = kzalloc(sizeof(struct snd_pcm), GFP_KERNEL);
@@ -80,7 +80,7 @@ make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct emu10k1x_car
   if (err) {
     goto err;
   }
-  aui->card_DMABUFF = runtime->dma_buffer_p->area;
+  aui->card_DMABUFF = (char *)runtime->dma_buffer_p->area;
   dmabuffsize = MDma_init_pcmoutbuf(aui, dmabuffsize, PCMBUFFERPAGESIZE, 0);
   emu10k1xdbg("dmabuffsize: %u   buff: %8.8X\n", dmabuffsize, aui->card_DMABUFF);
   snd_pcm_set_runtime_buffer(substream, runtime->dma_buffer_p);
@@ -111,7 +111,7 @@ make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct emu10k1x_car
   return 0;
 
  err:
-  if (runtime->dma_buffer_p) snd_dma_free_pages(runtime->dma_buffer_p);
+  if (runtime && runtime->dma_buffer_p) snd_dma_free_pages(runtime->dma_buffer_p);
   if (runtime) kfree(runtime);
   if (substream) kfree(substream);
   return -1;
