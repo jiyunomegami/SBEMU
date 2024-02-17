@@ -1013,20 +1013,6 @@ static aucards_allmixerchan_s cmi8x38_mixerset[]={
  NULL
 };
 
-static void cmi8x38_mpu401_write (struct mpxplay_audioout_info_s *aui, unsigned int idx, uint8_t data)
-{
-  if (idx == 0) {
-    int timeout = 10000; // 100ms
-    do {
-      uint8_t st = inp(aui->mpu401_port+1);
-      if (!(st & 0x40)) break;
-      // still full
-      pds_delay_10us(1);
-    } while (--timeout);
-  }
-  outp(aui->mpu401_port+idx, data);
-}
-
 static uint8_t cmi8x38_mpu401_read (struct mpxplay_audioout_info_s *aui, unsigned int idx)
 {
   struct cmi8x38_card *card=aui->card_private_data;
@@ -1072,7 +1058,7 @@ one_sndcard_info CMI8X38_sndcard_info={
 
  &ioport_fm_write,
  &ioport_fm_read,
- &cmi8x38_mpu401_write,
+ &ioport_mpu401_write_when_ready,
  &cmi8x38_mpu401_read,
 };
 
