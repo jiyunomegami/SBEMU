@@ -640,7 +640,7 @@ static void pci_init_host_bridge(struct pci_host_bridge *bridge)
 	device_initialize(&bridge->dev);
 }
 
-__attribute__((__noinline__))
+//__attribute__((__noinline__))
 struct pci_host_bridge *pci_alloc_host_bridge(size_t priv)
 {
 	struct pci_host_bridge *bridge;

@@ -267,16 +267,18 @@ void __read_once_size_nocheck(const volatile void *p, void *res, int size)
 
 static __always_inline void __write_once_size(volatile void *p, void *res, int size)
 {
+	barrier();
 	switch (size) {
 	case 1: *(volatile __u8 *)p = *(__u8 *)res; break;
 	case 2: *(volatile __u16 *)p = *(__u16 *)res; break;
 	case 4: *(volatile __u32 *)p = *(__u32 *)res; break;
 	case 8: *(volatile __u64 *)p = *(__u64 *)res; break;
 	default:
-		barrier();
+		//barrier();
 		__builtin_memcpy((void *)p, (const void *)res, size);
-		barrier();
+		//barrier();
 	}
+	barrier();
 }
 
 /*
@@ -319,6 +321,7 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
  */
 #define READ_ONCE_NOCHECK(x) __READ_ONCE(x, 0)
 
+//#define WRITE_ONCE(x, val) x = val
 #define WRITE_ONCE(x, val) \
 ({							\
 	union { typeof(x) __val; char __c[1]; } __u =	\
