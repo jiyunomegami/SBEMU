@@ -29,7 +29,6 @@ typedef struct au_isadma_s{
 }au_isadma_s;
 
 extern cardmem_t *MDma_alloc_cardmem(unsigned int buffsize);
-extern cardmem_t *MDma_alloc_cardmem_noexit(unsigned int buffsize);
 extern void MDma_free_cardmem(cardmem_t *dm);
 extern unsigned int MDma_get_max_pcmoutbufsize(struct mpxplay_audioout_info_s *aui,unsigned int max_bufsize,unsigned int pagesize,unsigned int samplesize,unsigned long freq_config);
 extern unsigned int MDma_init_pcmoutbuf(struct mpxplay_audioout_info_s *aui,unsigned int maxbufsize,unsigned int pagesize,unsigned long freq_config);

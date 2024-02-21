@@ -579,7 +579,7 @@ static void oxygen_shutdown(struct oxygen *chip)
 	spin_unlock_irq(&chip->reg_lock);
 }
 
-void oxygen_card_free(struct snd_card *card)
+static void oxygen_card_free(struct snd_card *card)
 {
 	struct oxygen *chip = card->private_data;
 

@@ -25,7 +25,7 @@
 #define DIV_38400			(115200 / 38400)
 #define DIV_115200			(115200 / 115200)
 #define DIV_BAUD_MIDI                   DIV_38400
-#define DIV_BAUD_DBG                    DIV_9600
+#define DIV_BAUD_DBG                    DIV_115200 //DIV_9600
 #define DIV_BAUD_FASTDBG                DIV_115200
 #define LCTL_8N1			0x03
 #define LCTL_DLAB			0x80
@@ -117,9 +117,11 @@ ser_putbyte(int c)
 static void
 ser_putchar(int c)
 {
+#if 0
     if (c == '\n') {
         ser_putchar('\r');
     }
+#endif
 
     while((inp(dbg_iobase | UART_LSTAT) & LST_TRIG_EMPTY) == 0);
     outp(dbg_iobase | UART_DATA, c);

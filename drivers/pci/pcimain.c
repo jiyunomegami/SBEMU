@@ -86,6 +86,7 @@ pciwalk_cb (struct pci_dev *dev, void *up)
       printk("root ");
     printk("bus]");
   }
+  printk(" R%2.2X C%6.6X", dev->revision, dev->class);
   printk("\n");
   return 0;
 }

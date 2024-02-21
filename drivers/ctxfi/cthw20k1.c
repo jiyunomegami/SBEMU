@@ -1891,9 +1891,11 @@ irqreturn_t ct_20k1_interrupt(int irq, void *dev_id)
 		hw->irq_callback(hw->irq_callback_data, status);
         }
 
-        //status = 0;
 	hw_write_20kx(hw, GIP, status);
-	return IRQ_HANDLED;
+        if (status & IT_INT)
+          return IRQ_HANDLED;
+        else
+          return IRQ_NONE;
 }
 
 static int hw_card_start(struct hw *hw)

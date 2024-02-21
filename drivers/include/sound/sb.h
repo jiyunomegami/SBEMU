@@ -274,6 +274,11 @@ static inline void snd_sb_ack_16bit(struct snd_sb *chip)
 	inb(SBP(chip, DATA_AVAIL_16));
 }
 
+static inline void snd_sb_ack_CR1E(struct snd_sb *chip)
+{
+	inb(SBP(chip, RESET));
+}
+
 /* sb_common.c */
 int snd_sbdsp_command(struct snd_sb *chip, unsigned char val);
 int snd_sbdsp_get_byte(struct snd_sb *chip);

@@ -10,13 +10,16 @@ VERSION ?= $(shell git describe --tags)
 INCLUDES := -I./mpxplay -I./sbemu -I./drivers/include
 DEFINES := -D__DOS__ -DSBEMU -DDEBUG=$(DEBUG) -DYSBEMU_CONFIG_UTIL=$(YSBEMU_CONFIG_UTIL) -DUSE_LINUX_PCI=$(USE_LINUX_PCI) -DMAIN_SBEMU_VER=\"$(VERSION)\"
 
-DRIVERS_CFLAGS := -fcommon -march=i386 -Os -flto=auto $(INCLUDES) $(DEFINES)
-AU_BASE_CFLAGS := -fcommon -march=i386 -Os -flto  $(INCLUDES) $(DEFINES)
-AU_CFLAGS := -fcommon -march=i386 -O2 -flto $(INCLUDES) $(DEFINES)
-SC_CFLAGS := -fcommon -march=i386 -O2 -flto $(INCLUDES) $(DEFINES)
-MPXPLAY_CFLAGS := -fcommon -march=i386 -O2 -flto $(INCLUDES) $(DEFINES)
-SBEMU_CFLAGS := -fcommon -march=i386 -O2 -flto $(INCLUDES) $(DEFINES)
-CFLAGS := -fcommon -march=i386 -O2 -flto $(INCLUDES) $(DEFINES)
+COMMON_CFLAGS := -O2 -flto
+#COMMON_CFLAGS := -Os
+
+DRIVERS_CFLAGS := -fcommon -march=i386 $(COMMON_CFLAGS) $(INCLUDES) $(DEFINES)
+AU_BASE_CFLAGS := -fcommon -march=i386 $(COMMON_CFLAGS)  $(INCLUDES) $(DEFINES)
+AU_CFLAGS := -fcommon -march=i386 $(COMMON_CFLAGS) $(INCLUDES) $(DEFINES)
+SC_CFLAGS := -fcommon -march=i386 $(COMMON_CFLAGS) $(INCLUDES) $(DEFINES)
+MPXPLAY_CFLAGS := -fcommon -march=i386 $(COMMON_CFLAGS) $(INCLUDES) $(DEFINES)
+SBEMU_CFLAGS := -fcommon -march=i386 $(COMMON_CFLAGS) $(INCLUDES) $(DEFINES)
+CFLAGS := -fcommon -march=i386 $(COMMON_CFLAGS) $(INCLUDES) $(DEFINES)
 LDFLAGS := -lstdc++ -lm -Wno-attributes
 
 ifeq ($(DEBUG),0)
@@ -41,6 +44,7 @@ all: $(TARGET)
 CARDS_SRC := mpxplay/au_cards/ac97_def.c \
 	     mpxplay/au_cards/au_base.c \
 	     mpxplay/au_cards/au_cards.c \
+	     mpxplay/au_cards/au_linux.c \
 	     mpxplay/au_cards/dmairq.c \
 	     mpxplay/au_cards/pcibios.c \
 	     mpxplay/au_cards/ioport.c \
@@ -91,6 +95,13 @@ OXYGEN_SRC := drivers/oxygen/xonar_dg.c \
 	      drivers/oxygen/oxygen_mixer.c \
 	      mpxplay/au_cards/sc_oxygen.c \
 
+ENVY24_SRC := drivers/ice1712/ice1724.c \
+	      drivers/ice1712/prodigy_hifi.c \
+	      mpxplay/au_cards/sc_envy24.c \
+
+ALLEGRO_SRC := drivers/maestro3/maestro3.c \
+	       mpxplay/au_cards/sc_allegro.c \
+
 SBEMU_SRC := sbemu/dbopl.cpp \
 	     sbemu/opl3emu.cpp \
 	     sbemu/pic.c \
@@ -129,7 +140,7 @@ PCI_SRC = drivers/pci/kernel.c \
           drivers/pci/common.c \
           drivers/pci/pcimain.c \
 
-LINUX_DRIVERS_SRC := $(PCI_SRC) $(CTXFI_SRC) $(EMU10K1_SRC) $(TRIDENT_SRC) $(ALS4000_SRC) $(OXYGEN_SRC)
+LINUX_DRIVERS_SRC := $(PCI_SRC) $(CTXFI_SRC) $(EMU10K1_SRC) $(TRIDENT_SRC) $(ALS4000_SRC) $(OXYGEN_SRC) $(ENVY24_SRC) $(ALLEGRO_SRC)
 SRC := $(LINUX_DRIVERS_SRC) $(CARDS_SRC) $(SBEMU_SRC)
 OBJS := $(patsubst %.cpp,output/%.o,$(patsubst %.c,output/%.o,$(SRC)))
 
@@ -156,7 +167,7 @@ output/mpxplay/au_cards/sc_%.o: mpxplay/au_cards/sc_%.c
 output/mpxplay/au_cards/au_base.o: mpxplay/au_cards/au_base.c
 	@mkdir -p $(dir $@)
 	$(SILENTMSG) "CC\t$@\n"
-	$(CC) $(AU_BASE_CFLAGS) -c $< -o $@
+	$(SILENTCMD)$(CC) $(AU_BASE_CFLAGS) -c $< -o $@
 
 output/mpxplay/au_cards/au_%.o: mpxplay/au_cards/au_%.c
 	@mkdir -p $(dir $@)

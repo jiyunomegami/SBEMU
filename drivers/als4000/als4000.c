@@ -303,6 +303,10 @@ static void snd_als4000_configure2(struct snd_sb *chip)
 	/* always select DMA channel 0, since we do not actually use DMA
 	 * SPECS_PAGE: 19/20 */
 	snd_sbmixer_write(chip, SB_DSP4_DMASETUP, SB_DMASETUP_DMA0);
+        // CR0 set to IRQ controlled mode
+	//snd_sbmixer_write(chip, 0x80, 0);
+	//snd_sbmixer_write(chip, 0x80, 2);
+	//snd_sbmixer_write(chip, 0x80, 0); // XXX
 	snd_als4_cr_write(chip, ALS4K_CR0_SB_CONFIG,
 				 tmp & ~ALS4K_CR0_MX80_81_REG_WRITE_ENABLE);
 	spin_unlock_irq(&chip->mixer_lock);
@@ -320,6 +324,8 @@ static void snd_als4000_configure2(struct snd_sb *chip)
 	/* enable burst mode to prevent dropouts during high PCI bus usage */
 	snd_als4k_gcr_write(chip, ALS4K_GCR99_DMA_EMULATION_CTRL,
 		(snd_als4k_gcr_read(chip, ALS4K_GCR99_DMA_EMULATION_CTRL) & ~0x07) | 0x04);
+	//snd_als4k_gcr_write(chip, ALS4K_GCR99_DMA_EMULATION_CTRL,
+        //                    (snd_als4k_gcr_read(chip, ALS4K_GCR99_DMA_EMULATION_CTRL)) | 0x100); // from OSS driver
 	spin_unlock_irq(&chip->reg_lock);
 
 	als4000_mixer_init(chip);
@@ -394,13 +400,17 @@ snd_pcm_uframes_t snd_als4000_playback_pointer(struct snd_pcm_substream *substre
 irqreturn_t snd_als4000_interrupt(int irq, void *dev_id)
 {
 	struct snd_sb *chip = dev_id;
-	unsigned pci_irqstatus;
-	unsigned sb_irqstatus;
+	uint8_t pci_irqstatus;
+	uint8_t sb_irqstatus;
+
+	//snd_als4k_gcr_write(chip, ALS4K_GCR8C_MISC_CTRL, (3<<16) | 0); // Mask INTA# output
 
 	/* find out which bit of the ALS4000 PCI block produced the interrupt,
 	   SPECS_PAGE: 38, 5 */
 	pci_irqstatus = snd_als4k_iobase_readb(chip->alt_port,
 				 ALS4K_IOB_0E_IRQTYPE_SB_CR1E_MPU);
+        bool handled = false;
+        if ((pci_irqstatus & ALS4K_IOB_0E_SB_DMA_IRQ)) handled = true;
 #if 0
 	if ((pci_irqstatus & ALS4K_IOB_0E_SB_DMA_IRQ)
 	 && (chip->playback_substream)) /* playback */
@@ -412,35 +422,66 @@ irqreturn_t snd_als4000_interrupt(int irq, void *dev_id)
 	 && (chip->rmidi)) /* MPU401 interrupt */
 		snd_mpu401_uart_interrupt(irq, chip->rmidi->private_data);
 #endif
-	/* ACK the PCI block IRQ */
-	snd_als4k_iobase_writeb(chip->alt_port,
-			 ALS4K_IOB_0E_IRQTYPE_SB_CR1E_MPU, pci_irqstatus);
+	if ((pci_irqstatus & ALS4K_IOB_0E_MPU_IRQ)) {
+          uint8_t midi_in_data = snd_als4k_iobase_readb(chip->alt_port, ALS4K_IOB_30_MIDI_DATA);
+          //printk("uartint %2.2X\n", midi_in_data);
+          handled = true;
+        }
+	/* ACK the PCI block IRQ */ // -> Except for the SB IRQ since they are acknowledged below -> ???
+        //if (pci_irqstatus & ~ALS4K_IOB_0E_SB_DMA_IRQ) snd_als4k_iobase_writeb(chip->alt_port, ALS4K_IOB_0E_IRQTYPE_SB_CR1E_MPU, pci_irqstatus & ~ALS4K_IOB_0E_SB_DMA_IRQ);
+	snd_als4k_iobase_writeb(chip->alt_port, ALS4K_IOB_0E_IRQTYPE_SB_CR1E_MPU, pci_irqstatus);
+
+        if (!handled) goto done;
 
 	spin_lock(&chip->mixer_lock);
 	/* SPECS_PAGE: 20 */
 	sb_irqstatus = snd_sbmixer_read(chip, SB_DSP4_IRQSTATUS);
 	spin_unlock(&chip->mixer_lock);
 
-	if (sb_irqstatus & SB_IRQTYPE_8BIT)
+	if (sb_irqstatus & SB_IRQTYPE_8BIT) {
 		snd_sb_ack_8bit(chip);
-	if (sb_irqstatus & SB_IRQTYPE_16BIT)
+        }
+	if (sb_irqstatus & SB_IRQTYPE_16BIT) {
 		snd_sb_ack_16bit(chip);
-	if (sb_irqstatus & SB_IRQTYPE_MPUIN)
-		inb(chip->mpu_port);
-	if (sb_irqstatus & ALS4K_IRQTYPE_CR1E_DMA)
+        }
+	if (sb_irqstatus & SB_IRQTYPE_MPUIN) {
+          // chip->mpu_port is not used
+          //inb(chip->mpu_port);
+          uint8_t midi_in_data = snd_als4k_iobase_readb(chip->alt_port, ALS4K_IOB_30_MIDI_DATA);
+          //printk("mpuin %2.2X\n", midi_in_data);
+        }
+	if (sb_irqstatus & ALS4K_IRQTYPE_CR1E_DMA) {
+          //snd_sb_ack_CR1E(chip);
 		snd_als4k_iobase_readb(chip->alt_port,
 					ALS4K_IOB_16_ACK_FOR_CR1E);
+        }
 
+        //if (pci_irqstatus != 0x80 || sb_irqstatus != 0x02) printk("irq 0x%2.2X 0x%2.2X\n", pci_irqstatus, sb_irqstatus);
 	/* dev_dbg(chip->card->dev, "als4000: irq 0x%04x 0x%04x\n",
 					 pci_irqstatus, sb_irqstatus); */
-
-	/* only ack the things we actually handled above */
-	return IRQ_RETVAL(
+#if 0
+        bool handled =
 	     (pci_irqstatus & (ALS4K_IOB_0E_SB_DMA_IRQ|ALS4K_IOB_0E_CR1E_IRQ|
 				ALS4K_IOB_0E_MPU_IRQ))
 	  || (sb_irqstatus & (SB_IRQTYPE_8BIT|SB_IRQTYPE_16BIT|
-				SB_IRQTYPE_MPUIN|ALS4K_IRQTYPE_CR1E_DMA))
-	);
+                              SB_IRQTYPE_MPUIN|ALS4K_IRQTYPE_CR1E_DMA));
+#endif
+
+ done:
+	//snd_als4k_gcr_write(chip, ALS4K_GCR8C_MISC_CTRL, (3<<16) | ALS4K_GCR8C_IRQ_MASK_CTRL_ENABLE); // Enable INTA# output again
+
+	/* only ack the things we actually handled above */
+	return IRQ_RETVAL(handled);
+}
+
+void als4000_interrupt_mask (void *dev_id, int mask)
+{
+  struct snd_sb *chip = dev_id;
+  if (mask) {
+    snd_als4k_gcr_write(chip, ALS4K_GCR8C_MISC_CTRL, (3<<16) | 0); // Mask INTA# output
+  } else {
+    snd_als4k_gcr_write(chip, ALS4K_GCR8C_MISC_CTRL, (3<<16) | ALS4K_GCR8C_IRQ_MASK_CTRL_ENABLE); // Enable INTA# output again
+  }
 }
 
 /*****************************************************************/
@@ -614,9 +655,15 @@ static void snd_als4000_configure(struct snd_sb *chip)
 	/* SPECS_PAGE: 39 */
 	for (i = ALS4K_GCR91_DMA0_ADDR; i <= ALS4K_GCR96_DMA3_MODE_COUNT; ++i)
 		snd_als4k_gcr_write(chip, i, 0);
+        for (i = 0x97; i < 0xa7; i++) // from OSS driver
+          snd_als4k_gcr_write(chip, i, 0);
+#if 0 // XXX try and disable this
 	/* enable burst mode to prevent dropouts during high PCI bus usage */
 	snd_als4k_gcr_write(chip, ALS4K_GCR99_DMA_EMULATION_CTRL,
 		(snd_als4k_gcr_read(chip, ALS4K_GCR99_DMA_EMULATION_CTRL) & ~0x07) | 0x04);
+#endif
+	snd_als4k_gcr_write(chip, ALS4K_GCR99_DMA_EMULATION_CTRL,
+                            (snd_als4k_gcr_read(chip, ALS4K_GCR99_DMA_EMULATION_CTRL)) | 0x100);
 	spin_unlock_irq(&chip->reg_lock);
 }
 
@@ -808,7 +855,7 @@ static int opl3_detect (uint16_t l_port, uint16_t r_port)
         return 0;
 }
 
-void snd_card_als4000_free( struct snd_card *card )
+static void snd_card_als4000_free( struct snd_card *card )
 {
 	struct snd_card_als4000 *acard = card->private_data;
 

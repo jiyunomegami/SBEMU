@@ -762,6 +762,7 @@ irqreturn_t snd_emu10k1x_interrupt(int irq, void *dev_id)
 	struct emu10k1x_voice *pvoice = chip->voices;
 	int i;
 	int mask;
+        irqreturn_t handled = IRQ_NONE;
 
 	status = inl(chip->port + IPR);
 
@@ -771,6 +772,7 @@ irqreturn_t snd_emu10k1x_interrupt(int irq, void *dev_id)
 	// capture interrupt
 	if (status & (IPR_CAP_0_LOOP | IPR_CAP_0_HALF_LOOP)) {
 		struct emu10k1x_voice *cap_voice = &chip->capture_voice;
+		handled = IRQ_HANDLED;
 		if (cap_voice->use)
 			snd_emu10k1x_pcm_interrupt(chip, cap_voice);
 		else
@@ -782,6 +784,7 @@ irqreturn_t snd_emu10k1x_interrupt(int irq, void *dev_id)
 	mask = IPR_CH_0_LOOP|IPR_CH_0_HALF_LOOP;
 	for (i = 0; i < 3; i++) {
 		if (status & mask) {
+			handled = IRQ_HANDLED;
 			if (pvoice->use)
 				snd_emu10k1x_pcm_interrupt(chip, pvoice);
 			else 
@@ -792,6 +795,7 @@ irqreturn_t snd_emu10k1x_interrupt(int irq, void *dev_id)
 	}
 		
 	if (status & (IPR_MIDITRANSBUFEMPTY|IPR_MIDIRECVBUFEMPTY)) {
+		handled = IRQ_HANDLED;
 		if (chip->midi.interrupt)
 			chip->midi.interrupt(chip, status);
 		else
@@ -802,7 +806,7 @@ irqreturn_t snd_emu10k1x_interrupt(int irq, void *dev_id)
 	outl(status, chip->port + IPR);
 
 	/* dev_dbg(chip->card->dev, "interrupt %08x\n", status); */
-	return IRQ_HANDLED;
+	return handled;
 }
 
 #if 0
@@ -871,7 +875,8 @@ static int snd_emu10k1x_pcm(struct emu10k1x *emu, int device)
 #endif
 
 static int snd_emu10k1x_create(struct snd_card *card,
-                               struct pci_dev *pci)
+                               struct pci_dev *pci,
+                               int enable_spdif)
 {
 	struct emu10k1x *chip = card->private_data;
 	int err;
@@ -961,17 +966,17 @@ static int snd_emu10k1x_create(struct snd_card *card,
 			       SPCS_GENERATIONSTATUS | 0x00001200 |
 			       0x00000000 | SPCS_EMPHASIS_NONE | SPCS_COPYRIGHT);
 
-#if 0
-        // Enabling S/PDIF will disable analog out... leave S/PDIF disabled
-        // enable spdif output
-        snd_emu10k1x_ptr_write(chip, SPDIF_SELECT, 0, 0x000);
-        snd_emu10k1x_ptr_write(chip, ROUTING, 0, 0x700);
-        snd_emu10k1x_gpio_write(chip, 0x1000);
-#else
-	snd_emu10k1x_ptr_write(chip, SPDIF_SELECT, 0, 0x700); // disable SPDIF
-	snd_emu10k1x_ptr_write(chip, ROUTING, 0, 0x1003F); // routing
-	snd_emu10k1x_gpio_write(chip, 0x1080); // analog mode
-#endif
+	if (enable_spdif) {
+	  // Enabling S/PDIF will disable analog out
+	  // enable spdif output
+	  snd_emu10k1x_ptr_write(chip, SPDIF_SELECT, 0, 0x000);
+	  snd_emu10k1x_ptr_write(chip, ROUTING, 0, 0x700);
+	  snd_emu10k1x_gpio_write(chip, 0x1000);
+	} else {
+	  snd_emu10k1x_ptr_write(chip, SPDIF_SELECT, 0, 0x700); // disable SPDIF
+	  snd_emu10k1x_ptr_write(chip, ROUTING, 0, 0x1003F); // routing
+	  snd_emu10k1x_gpio_write(chip, 0x1080); // analog mode
+	}
 
 	outl(HCFG_LOCKSOUNDCACHE|HCFG_AUDIOENABLE, chip->port+HCFG);
 
@@ -1576,7 +1581,7 @@ static void emu10k1x_ac97_init (struct snd_card *card)
   }
 }
 
-int snd_emu10k1x_probe (struct snd_card *card, struct pci_dev *pci)
+int snd_emu10k1x_probe (struct snd_card *card, struct pci_dev *pci, int enable_spdif)
 {
 	static int dev;
 	//struct snd_card *card;
@@ -1598,37 +1603,37 @@ int snd_emu10k1x_probe (struct snd_card *card, struct pci_dev *pci)
 	chip = card->private_data;
 #endif
 	chip = kzalloc(sizeof(*chip), GFP_KERNEL);
-        if (!chip)
-          return -ENOMEM;
-        card->private_data = chip;
+	if (!chip)
+	  return -ENOMEM;
+	card->private_data = chip;
 
-	err = snd_emu10k1x_create(card, pci);
+	err = snd_emu10k1x_create(card, pci, enable_spdif);
 	if (err < 0)
-		return err;
-        emu10k1x_ac97_init(card);
+		goto err;
+	emu10k1x_ac97_init(card);
 
 #if 0
 	err = snd_emu10k1x_pcm(chip, 0);
 	if (err < 0)
-		return err;
+		goto err;
 	err = snd_emu10k1x_pcm(chip, 1);
 	if (err < 0)
-		return err;
+		goto err;
 	err = snd_emu10k1x_pcm(chip, 2);
 	if (err < 0)
-		return err;
+		goto err;
 
 	err = snd_emu10k1x_ac97(chip);
 	if (err < 0)
-		return err;
+		goto err;
 
 	err = snd_emu10k1x_mixer(chip);
 	if (err < 0)
-		return err;
+		goto err;
 	
 	err = snd_emu10k1x_midi(chip);
 	if (err < 0)
-		return err;
+		goto err;
 
 	snd_emu10k1x_proc_init(chip);
 
@@ -1639,14 +1644,17 @@ int snd_emu10k1x_probe (struct snd_card *card, struct pci_dev *pci)
 
 	err = snd_card_register(card);
 	if (err < 0)
-		return err;
+		goto err;
 
 	pci_set_drvdata(pci, card);
 	dev++;
 #endif
 
-
 	return 0;
+ err:
+	if (chip) kfree(chip);
+	card->private_data = NULL;
+	return err;
 }
 
 #if 0

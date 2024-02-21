@@ -134,7 +134,7 @@ struct oxygen {
 	u8 spdif_playback_enable;
 	u8 has_ac97_0;
 	u8 has_ac97_1;
-	u8 probe_only;
+	u8 probe_only: 1;
 	u32 spdif_bits;
 	u32 spdif_pcm_bits;
 	struct snd_pcm_substream *streams[PCM_COUNT];

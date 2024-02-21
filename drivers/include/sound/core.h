@@ -74,6 +74,27 @@ snd_pci_quirk_lookup_id (u16 vendor, u16 device, const struct snd_pci_quirk *lis
 	return NULL;
 }
 
+/**
+ * snd_pci_quirk_lookup - look up a PCI SSID quirk list
+ * @pci: pci_dev handle
+ * @list: quirk list, terminated by a null entry
+ *
+ * Look through the given quirk list and finds a matching entry
+ * with the same PCI SSID.  When subdevice is 0, all subdevice
+ * values may match.
+ *
+ * Returns the matched entry pointer, or NULL if nothing matched.
+ */
+static inline const struct snd_pci_quirk *
+snd_pci_quirk_lookup(struct pci_dev *pci, const struct snd_pci_quirk *list)
+{
+        if (!pci)
+                return NULL;
+        return snd_pci_quirk_lookup_id(pci->subsystem_vendor,
+                                       pci->subsystem_device,
+                                       list);
+}
+
 /* forward declarations */
 struct pci_dev;
 struct module;
@@ -185,5 +206,8 @@ struct snd_card {
 };
 
 #define dev_to_snd_card(p)	container_of(p, struct snd_card, card_dev)
+
+#define snd_i2c_lock(x)
+#define snd_i2c_unlock(x)
 
 #endif

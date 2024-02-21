@@ -3330,7 +3330,8 @@ static inline void snd_trident_free_gameport(struct snd_trident *chip) { }
  */
 static inline void do_delay(struct snd_trident *chip)
 {
-	schedule_timeout_uninterruptible(1);
+  //schedule_timeout_uninterruptible(1);
+  udelay(1);
 }
 
 /*

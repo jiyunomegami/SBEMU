@@ -874,16 +874,20 @@ int main(int argc, char* argv[])
 
     if(MAIN_Options[OPT_OPL].value)
     {
-        QEMM_IODT *iodt = fm_aui.fm ? MAIN_HW_OPL3IODT : MAIN_OPL3IODT;
-        if(enableRM && !(OPLRMInstalled=QEMM_Install_IOPortTrap(iodt, 4, &OPL3IOPT)))
-        {
-            printf("Error: Failed installing IO port trap for QEMM.\n");
-            return 1;
-        }
-        if(enablePM && !(OPLPMInstalled=HDPMIPT_Install_IOPortTrap(0x388, 0x38B, iodt, 4, &OPL3IOPT_PM)))
-        {
-            printf("Error: Failed installing IO port trap for HDPMI.\n");
-            return 1;
+        if (!(fm_aui.fm && fm_aui.fm_port == 0x388)) {
+            QEMM_IODT *iodt = fm_aui.fm ? MAIN_HW_OPL3IODT : MAIN_OPL3IODT;
+            if(enableRM && !(OPLRMInstalled=QEMM_Install_IOPortTrap(iodt, 4, &OPL3IOPT)))
+            {
+                printf("Error: Failed installing IO port trap for QEMM.\n");
+                return 1;
+            }
+            if(enablePM && !(OPLPMInstalled=HDPMIPT_Install_IOPortTrap(0x388, 0x38B, iodt, 4, &OPL3IOPT_PM)))
+            {
+                printf("Error: Failed installing IO port trap for HDPMI.\n");
+                return 1;
+            }
+        } else {
+            printf("Not installing IO port trap. Using hardware OPL3 at port 388.\n");
         }
 
         //OPL3EMU_Init(aui.freq_card);
@@ -1594,7 +1598,7 @@ static void MAIN_TSR_Interrupt()
             if(MAIN_Options[OPT_RM].value)
             {
                 _LOG("uninstall qemm\n");
-                if(MAIN_Options[OPT_OPL].value) QEMM_Uninstall_IOPortTrap(&OPL3IOPT);
+                if(MAIN_Options[OPT_OPL].value && OPLRMInstalled) QEMM_Uninstall_IOPortTrap(&OPL3IOPT);
                 if(MAIN_Options[OPT_MPUADDR].value && MAIN_Options[OPT_MPUCOMPORT].value) QEMM_Uninstall_IOPortTrap(&MPUIOPT);
                 QEMM_Uninstall_IOPortTrap(&MAIN_VDMA_IOPT);
                 #if !MAIN_TRAP_RMPIC_ONDEMAND
@@ -1605,7 +1609,7 @@ static void MAIN_TSR_Interrupt()
             if(MAIN_Options[OPT_PM].value)
             {
                 _LOG("uninstall hdpmi\n");
-                if(MAIN_Options[OPT_OPL].value) HDPMIPT_Uninstall_IOPortTrap(&OPL3IOPT_PM);
+                if(MAIN_Options[OPT_OPL].value && OPLPMInstalled) HDPMIPT_Uninstall_IOPortTrap(&OPL3IOPT_PM);
                 if(MAIN_Options[OPT_MPUADDR].value && MAIN_Options[OPT_MPUCOMPORT].value) HDPMIPT_Uninstall_IOPortTrap(&MPUIOPT_PM);
                 HDPMIPT_Uninstall_IOPortTrap(&MAIN_VDMA_IOPT_PM1);
                 HDPMIPT_Uninstall_IOPortTrap(&MAIN_VDMA_IOPT_PM2);
@@ -1622,7 +1626,7 @@ static void MAIN_TSR_Interrupt()
             opt[OPT_PM].value = opt[OPT_PM].value && MAIN_HDPMI_Present;
             opt[OPT_RM].value = opt[OPT_RM].value && MAIN_QEMM_Present;
 
-            if(opt[OPT_OPL].value)
+            if(opt[OPT_OPL].value && !(fm_aui.fm && fm_aui.fm_port == 0x388))
             {
                 _LOG("install opl\n");
                 QEMM_IODT *iodt = fm_aui.fm ? MAIN_HW_OPL3IODT : MAIN_OPL3IODT;

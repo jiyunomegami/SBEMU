@@ -1,7 +1,7 @@
 // OXYGEN(CMI8788) driver for SBEMU
 // based on the Linux driver
 
-#include "au_cards.h"
+#include "au_linux.h"
 
 #ifdef AU_CARDS_LINK_OXYGEN
 
@@ -46,11 +46,7 @@ static pci_device_s oxygen_devices[] = {
 };
 
 struct oxygen_card_s {
-  struct snd_card *linux_snd_card;
-  struct pci_dev *linux_pci_dev;
-  struct snd_pcm_substream *pcm_substream;
-  struct pci_config_s *pci_dev;
-  unsigned int irq;
+  struct au_linux_card card;
 };
 
 extern struct snd_pcm_ops oxygen_spdif_ops;
@@ -60,117 +56,13 @@ extern struct snd_pcm_ops oxygen_ac97_ops;
 //static struct snd_pcm_ops *oxygen_ops = &oxygen_ac97_ops;
 static struct snd_pcm_ops *oxygen_ops = &oxygen_spdif_ops;
 extern int snd_oxygen_probe (struct snd_card *card, struct pci_dev *pci, int probe_only);
-
-static int
-make_snd_pcm_substream (struct mpxplay_audioout_info_s *aui, struct oxygen_card_s *card, struct snd_pcm_substream **substreamp)
-{
-  struct snd_pcm_substream *substream;
-  struct snd_pcm_runtime *runtime;
-  struct snd_pcm_hw_params hwparams;
-  struct snd_interval *intervalparam;
-  int err;
-
-  substream = kzalloc(sizeof(*substream), GFP_KERNEL);
-  if (!substream) {
-    return -1;
-  }
-  substream->ops = oxygen_ops;
-  substream->pcm = kzalloc(sizeof(struct snd_pcm), GFP_KERNEL);
-  substream->pcm->card = card->linux_snd_card;
-  substream->pcm->device = 0;
-  runtime = kzalloc(sizeof(struct snd_pcm_runtime), GFP_KERNEL);
-  if (!runtime) {
-    goto err;
-  }
-  substream->runtime = runtime;
-  substream->private_data = card->linux_snd_card->private_data;
-  substream->group = &substream->self_group;
-  snd_pcm_group_init(&substream->self_group);
-  list_add_tail(&substream->link_list, &substream->self_group.substreams);
-  runtime->dma_buffer_p = kzalloc(sizeof(struct snd_dma_buffer), GFP_KERNEL);
-  if (!runtime->dma_buffer_p) {
-    goto err;
-  }
-#define PCMBUFFERPAGESIZE 512
-//#define PCMBUFFERPAGESIZE 4096
-  aui->chan_card = 2;
-  aui->bits_card = 16;
-  aui->card_wave_id = MPXPLAY_WAVEID_PCM_SLE;
-  size_t dmabuffsize = 4096;
-  //size_t dmabuffsize = aui->card_dmasize;
-  dmabuffsize = MDma_get_max_pcmoutbufsize(aui, 0, PCMBUFFERPAGESIZE, 2, 0);
-  oxygendbg("max dmabuffsize: %u\n", dmabuffsize);
-  err = snd_dma_alloc_pages(SNDRV_DMA_TYPE_DEV, 
-                            &card->linux_pci_dev->dev,
-                            dmabuffsize,
-                            runtime->dma_buffer_p);
-  if (err) {
-    goto err;
-  }
-  aui->card_DMABUFF = (char *)runtime->dma_buffer_p->area;
-  dmabuffsize = MDma_init_pcmoutbuf(aui, dmabuffsize, PCMBUFFERPAGESIZE, 0);
-  oxygendbg("dmabuffsize: %u   buff: %8.8X\n", dmabuffsize, aui->card_DMABUFF);
-  snd_pcm_set_runtime_buffer(substream, runtime->dma_buffer_p);
-  runtime->buffer_size = dmabuffsize;
-  runtime->channels = 2;
-  runtime->frame_bits = 16;
-  runtime->sample_bits = 16;
-  runtime->rate = aui->freq_card;
-  runtime->format = SNDRV_PCM_FORMAT_S16_LE;
-  *substreamp = substream;
-  oxygendbg("open substream\n");
-  err = oxygen_ops->open(substream);
-  if (err) {
-    goto err;
-  }
-  intervalparam = hw_param_interval(&hwparams, SNDRV_PCM_HW_PARAM_BUFFER_BYTES);
-  intervalparam->min = dmabuffsize;
-  intervalparam = hw_param_interval(&hwparams, SNDRV_PCM_HW_PARAM_PERIOD_SIZE);
-  intervalparam->min = runtime->period_size;
-  intervalparam = hw_param_interval(&hwparams, SNDRV_PCM_HW_PARAM_RATE);
-  intervalparam->min = aui->freq_card;
-  intervalparam = hw_param_interval(&hwparams, SNDRV_PCM_HW_PARAM_CHANNELS);
-  intervalparam->min = 2;
-  oxygendbg("hw params\n");
-  err = oxygen_ops->hw_params(substream, &hwparams);
-  if (err) {
-    goto err;
-  }
-  //oxygendbg("runtime: %8.8X\n", runtime);
-  int periods = max(1, dmabuffsize / PCMBUFFERPAGESIZE);
-  runtime->periods = periods;
-  runtime->period_size = (dmabuffsize / periods) >> 1;
-  oxygendbg("periods: %u  size: %u\n", runtime->periods, runtime->period_size);
-  aui->card_dmasize = aui->card_dma_buffer_size = dmabuffsize;
-  aui->card_samples_per_int = runtime->period_size >> 2;
-
-  return 0;
-
- err:
-  if (runtime && runtime->dma_buffer_p) snd_dma_free_pages(runtime->dma_buffer_p);
-  if (runtime) kfree(runtime);
-  if (substream) kfree(substream);
-  return -1;
-}
-
-extern void oxygen_card_free(struct snd_card *card);
+extern irqreturn_t oxygen_interrupt(int irq, void *dev_id);
 
 static void OXYGEN_close (struct mpxplay_audioout_info_s *aui)
 {
   struct oxygen_card_s *card = aui->card_private_data;
   if (card) {
-    if (card->pcm_substream) {
-      if (card->pcm_substream->runtime) {
-        if (card->pcm_substream->runtime->dma_buffer_p)
-          snd_dma_free_pages(card->pcm_substream->runtime->dma_buffer_p);
-        kfree(card->pcm_substream->runtime);
-      }
-      kfree(card->pcm_substream);
-    }
-    if (card->linux_snd_card)
-      oxygen_card_free(card->linux_snd_card);
-    if (card->pci_dev)
-      pds_free(card->pci_dev);
+    au_linux_close_card(&card->card);
     pds_free(card);
     aui->card_private_data = NULL;
   }
@@ -180,7 +72,7 @@ static void OXYGEN_card_info (struct mpxplay_audioout_info_s *aui)
 {
   struct oxygen_card_s *card = aui->card_private_data;
   char sout[100];
-  sprintf(sout, "OXYGEN : %s (%4.4X) IRQ %u", card->pci_dev->device_name, card->pci_dev->device_id, card->irq);
+  sprintf(sout, "OXYGEN : %s (%4.4X) IRQ %u", card->card.pci_dev->device_name, card->card.pci_dev->device_id, card->card.irq);
   pds_textdisplay_printf(sout);
 }
 
@@ -195,46 +87,20 @@ static int OXYGEN_adetect (struct mpxplay_audioout_info_s *aui)
   card = (struct oxygen_card_s *)pds_zalloc(sizeof(struct oxygen_card_s));
   if (!card)
     return 0;
-  aui->card_private_data = card;
-
-  card->pci_dev = (struct pci_config_s *)pds_zalloc(sizeof(struct pci_config_s));
-  if (!card->pci_dev)
+  if (au_linux_find_card(aui, &card->card, oxygen_devices) < 0)
     goto err_adetect;
 
-  if (pcibios_search_devices(oxygen_devices, card->pci_dev) != PCI_SUCCESSFUL)
-    goto err_adetect;
-
-  iobase = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR);
-  iobase &= 0xfffffff8;
-  if (!iobase)
-    goto err_adetect;
-
-  aui->card_irq = card->irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
-#ifdef SBEMU
-  aui->card_pci_dev = card->pci_dev;
-#endif
+  oxygendbg("PCI subsystem %4.4X:%4.4X\n", card->card.linux_pci_dev->subsystem_vendor, card->card.linux_pci_dev->subsystem_device);
   if ((aui->card_select_config & 1) == 0) {
     oxygen_ops = &oxygen_multich_ops;
   } else {
     oxygen_ops = &oxygen_spdif_ops;
   }
-
-  card->linux_snd_card = pds_zalloc(sizeof(struct snd_card));
-  card->linux_pci_dev = pds_zalloc(sizeof(struct pci_dev));
-  card->linux_pci_dev->pcibios_dev = card->pci_dev;
-  card->linux_pci_dev->irq = card->irq;
-  card->linux_pci_dev->vendor = card->pci_dev->vendor_id;
-  card->linux_pci_dev->device = card->pci_dev->device_id;
-  card->linux_pci_dev->subsystem_vendor = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_SSVID);
-  card->linux_pci_dev->subsystem_device = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_SSID);
-  card->linux_pci_dev->revision = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_RID);
-  oxygendbg("pci subsystem %4.4X:%4.4X\n", card->linux_pci_dev->subsystem_vendor, card->linux_pci_dev->subsystem_device);
-  //err = snd_oxygen_probe(card->linux_snd_card, card->linux_pci_dev, pcidevids);
   int probe_only = aui->card_controlbits & AUINFOS_CARDCNTRLBIT_TESTCARD;
-  err = snd_oxygen_probe(card->linux_snd_card, card->linux_pci_dev, probe_only);
+  err = snd_oxygen_probe(card->card.linux_snd_card, card->card.linux_pci_dev, probe_only);
   if (err) goto err_adetect;
-  //aui->mpu401 = 1;
-  oxygendbg("OXYGEN : %s (%4.4X) IRQ %u\n", card->pci_dev->device_name, card->pci_dev->device_id, card->irq);
+
+  oxygendbg("OXYGEN : %s (%4.4X) IRQ %u\n", card->card.pci_dev->device_name, card->card.pci_dev->device_id, card->card.irq);
 
   return 1;
 
@@ -259,9 +125,13 @@ static void OXYGEN_setrate (struct mpxplay_audioout_info_s *aui)
     }
   }
   oxygendbg("-> %u\n", aui->freq_card);
-  err = make_snd_pcm_substream(aui, card, &card->pcm_substream);
+  aui->card_dmasize = 512;
+  aui->card_dma_buffer_size = 1024 * 8;
+  aui->dma_addr_bits = 32;
+  aui->buffer_size_shift = 1;
+  err = au_linux_make_snd_pcm_substream(aui, &card->card, oxygen_ops);
   if (err) goto err_setrate;
-  oxygen_ops->prepare(card->pcm_substream);
+  oxygen_ops->prepare(card->card.pcm_substream);
   return;
 
  err_setrate:
@@ -272,14 +142,14 @@ static void OXYGEN_start (struct mpxplay_audioout_info_s *aui)
 {
   oxygendbg("start\n");
   struct oxygen_card_s *card = aui->card_private_data;
-  oxygen_ops->trigger(card->pcm_substream, SNDRV_PCM_TRIGGER_START);
+  oxygen_ops->trigger(card->card.pcm_substream, SNDRV_PCM_TRIGGER_START);
 }
 
 static void OXYGEN_stop (struct mpxplay_audioout_info_s *aui)
 {
   oxygendbg("stop\n");
   struct oxygen_card_s *card = aui->card_private_data;
-  oxygen_ops->trigger(card->pcm_substream, SNDRV_PCM_TRIGGER_STOP);
+  oxygen_ops->trigger(card->card.pcm_substream, SNDRV_PCM_TRIGGER_STOP);
 }
 
 unsigned int oxygen_int_cnt = 0;
@@ -287,10 +157,10 @@ unsigned int oxygen_int_cnt = 0;
 static long OXYGEN_getbufpos (struct mpxplay_audioout_info_s *aui)
 {
   struct oxygen_card_s *card = aui->card_private_data;
-  unsigned long bufpos = oxygen_ops->pointer(card->pcm_substream);
+  unsigned long bufpos = oxygen_ops->pointer(card->card.pcm_substream);
   bufpos <<= 1;
 #if OXYGEN_DEBUG > 1
-  if ((oxygen_int_cnt % 450) == 0)
+  if ((oxygen_int_cnt % 45) == 0)
     oxygendbg("getbufpos %u / %u\n", bufpos, aui->card_dmasize);
   //if (bufpos == aui->card_dmasize)
   //  oxygendbg("getbufpos %u == dmasize\n", bufpos);
@@ -313,7 +183,7 @@ static void OXYGEN_writeMIXER (struct mpxplay_audioout_info_s *aui, unsigned lon
 {
   struct oxygen_card_s *card = aui->card_private_data;
   // Xonar DG Analog (DAC) only
-  if (card->pci_dev->device_type == OXYGEN_TYPE_XONAR_DG) {
+  if (card->card.pci_dev->device_type == OXYGEN_TYPE_XONAR_DG) {
     // map 0-255 to 0,128-255
     uint16_t val1 = val & 0xff;
     uint16_t val2 = (val >> 8) & 0xff;
@@ -323,15 +193,15 @@ static void OXYGEN_writeMIXER (struct mpxplay_audioout_info_s *aui, unsigned lon
     if (val2 == 128) val2 = 0;
     val = ((val2 << 8) & 0xff00) | (val1 & 0xff);
     oxygendbg("write mixer val: %X\n", val);
-    xonar_stereo_volume_put(card->linux_snd_card, val);
+    xonar_stereo_volume_put(card->card.linux_snd_card, val);
   }
 }
 
 static unsigned long OXYGEN_readMIXER (struct mpxplay_audioout_info_s *aui, unsigned long reg)
 {
   struct oxygen_card_s *card = aui->card_private_data;
-  if (card->pci_dev->device_type == OXYGEN_TYPE_XONAR_DG) {
-    uint16_t val = xonar_stereo_volume_get(card->linux_snd_card);
+  if (card->card.pci_dev->device_type == OXYGEN_TYPE_XONAR_DG) {
+    uint16_t val = xonar_stereo_volume_get(card->card.linux_snd_card);
     // map 0,128-255 to 0-255
     uint16_t val1 = val & 0xff;
     uint16_t val2 = (val >> 8) & 0xff;
@@ -347,12 +217,10 @@ static unsigned long OXYGEN_readMIXER (struct mpxplay_audioout_info_s *aui, unsi
   }
 }
 
-extern irqreturn_t oxygen_interrupt(int irq, void *dev_id);
-
 static int OXYGEN_IRQRoutine (struct mpxplay_audioout_info_s *aui)
 {
   struct oxygen_card_s *card = aui->card_private_data;
-  int handled = oxygen_interrupt(card->irq, card->linux_snd_card->private_data);
+  int handled = oxygen_interrupt(card->card.irq, card->card.linux_snd_card->private_data);
 #if OXYGEN_DEBUG
   if (handled) {
     if ((oxygen_int_cnt % 500) == 0) DBG_Logi("oxygenirq %u\n", oxygen_int_cnt);
@@ -361,23 +229,6 @@ static int OXYGEN_IRQRoutine (struct mpxplay_audioout_info_s *aui)
 #endif
   return handled;
 }
-
-#if 0
-extern unsigned char oxygen_mpu401_read (void *card, unsigned int idx);
-extern void oxygen_mpu401_write (void *card, unsigned int idx, unsigned char data);
-
-static uint8_t OXYGEN_mpu401_read (struct mpxplay_audioout_info_s *aui, unsigned int idx)
-{
-  struct oxygen_card_s *card = aui->card_private_data;
-  return oxygen_mpu401_read(card, idx);
-}
-
-static void OXYGEN_mpu401_write (struct mpxplay_audioout_info_s *aui, unsigned int idx, uint8_t data)
-{
-  struct oxygen_card_s *card = aui->card_private_data;
-  oxygen_mpu401_write(card, idx, data);
-}
-#endif
 
 one_sndcard_info OXYGEN_sndcard_info = {
  "OXYGEN",
@@ -406,8 +257,6 @@ one_sndcard_info OXYGEN_sndcard_info = {
  NULL,
  NULL,
  NULL,
- //&OXYGEN_mpu401_write,
- //&OXYGEN_mpu401_read,
 };
 
 #endif // AUCARDS_LINK_OXYGEN

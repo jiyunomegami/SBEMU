@@ -11,10 +11,12 @@ extern void pds_free(void *bufptr);
 #define kmalloc(size,flags) pds_malloc(size)
 #define kcalloc(n,size,flags) pds_calloc(n,size)
 #define kzalloc(size,flags) pds_zalloc(size) /* zero */
-#define devm_kzalloc(dev,size,flags) pds_zalloc(size) /* zero */
 #define kfree(p) pds_free((void *)p)
 #define vmalloc(size) pds_malloc(size)
 #define vfree(p) pds_free(p)
+#define devm_kzalloc(dev,size,flags) pds_zalloc(size) /* zero */
+#define devm_kcalloc(dev,n,size,flags) pds_calloc(n,size)
+#define devm_kfree(dev,p) pds_free((void *)p)
 
 #include "linux/types.h"
 

@@ -189,7 +189,7 @@ typedef unsigned long cpumask_var_t;
 
 #define usleep_range(x,y) pds_delay_10us((x)/10)
 
-#define schedule_timeout_uninterruptible(ticks) pds_delay_1695ns(ticks)
+#define schedule_timeout_uninterruptible(ticks) 0brokenDONOTUSE//pds_delay_1695ns(ticks)
 
 
 #ifndef BITS_PER_LONG
@@ -539,6 +539,9 @@ struct attribute_group {
 
 #define IS_REACHABLE(x) x
 #define fallthrough
+
+// cpu_relax from arch/x86/boot/boot.h
+#define cpu_relax()     asm volatile("rep; nop")
 
 #endif
 

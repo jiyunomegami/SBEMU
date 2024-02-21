@@ -63,6 +63,8 @@ extern one_sndcard_info EMU10K1X_sndcard_info;
 extern one_sndcard_info TRIDENT_sndcard_info;
 extern one_sndcard_info ALS4000_sndcard_info;
 extern one_sndcard_info OXYGEN_sndcard_info;
+extern one_sndcard_info ENVY24_sndcard_info;
+extern one_sndcard_info ALLEGRO_sndcard_info;
 extern one_sndcard_info YMF_sndcard_info;
 extern one_sndcard_info YMFSB_sndcard_info;
 #ifndef SBEMU
@@ -106,6 +108,9 @@ static one_sndcard_info *all_sndcard_info[]={
 #ifdef AU_CARDS_LINK_YMF
  &YMF_sndcard_info,
 #endif
+#ifdef AU_CARDS_LINK_ALLEGRO
+ &ALLEGRO_sndcard_info,
+#endif
 #ifdef AU_CARDS_LINK_ALS4000
  &ALS4000_sndcard_info,
 #endif
@@ -138,6 +143,9 @@ static one_sndcard_info *all_sndcard_info[]={
 #endif
 #ifdef AU_CARDS_LINK_EMU10K1X
  &EMU10K1X_sndcard_info,
+#endif
+#ifdef AU_CARDS_LINK_ENVY24
+ &ENVY24_sndcard_info,
 #endif
 #ifdef AU_CARDS_LINK_OXYGEN
  &OXYGEN_sndcard_info,
@@ -487,7 +495,9 @@ auinit_retry:
  return;
 
 err_out_auinit:
-#ifndef SBEMU
+#ifdef SBEMU
+ return;
+#else
 #ifdef MPXPLAY_GUI_CONSOLE
  mpxplay_close_program(error_code);
 #else

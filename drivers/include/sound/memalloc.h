@@ -156,6 +156,7 @@ void snd_free_pages(void *ptr, size_t size);
 #include "linux/slab.h"
 #include "au_cards/dmairq.h"
 
+extern cardmem_t *MDma_alloc_cardmem_noexit (size_t size);
 static inline int snd_dma_alloc_pages (int type, struct device *device, size_t size,
                                        struct snd_dma_buffer *dmab) {
   cardmem_t *dm;

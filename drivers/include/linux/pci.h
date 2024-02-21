@@ -1194,32 +1194,32 @@ extern void pci_set_master (struct pci_dev *pcidev);
 int __must_check pci_request_regions(struct pci_dev *, const char *);
 void pci_release_regions(struct pci_dev *);
 #else
-static inline int pci_read_config_dword (struct pci_dev *pcidev, uint16_t addr, unsigned int *wordp) {
+static inline int pci_read_config_dword (struct pci_dev *pcidev, u16 addr, u32 *wordp) {
   *wordp = pcibios_ReadConfig_Dword(pcidev->pcibios_dev, addr);
   return PCIBIOS_SUCCESSFUL;
 }
 
-static inline int pci_write_config_dword (struct pci_dev *pcidev, uint16_t addr, unsigned int word) {
+static inline int pci_write_config_dword (struct pci_dev *pcidev, u16 addr, u32 word) {
   pcibios_WriteConfig_Dword(pcidev->pcibios_dev, addr, word);
   return PCIBIOS_SUCCESSFUL;
 }
 
-static inline int pci_read_config_word (struct pci_dev *pcidev, uint16_t addr, unsigned short *wordp) {
+static inline int pci_read_config_word (struct pci_dev *pcidev, u16 addr, u16 *wordp) {
   *wordp = pcibios_ReadConfig_Word(pcidev->pcibios_dev, addr);
   return PCIBIOS_SUCCESSFUL;
 }
 
-static inline int pci_write_config_word (struct pci_dev *pcidev, uint16_t addr, unsigned short word) {
+static inline int pci_write_config_word (struct pci_dev *pcidev, u16 addr, u16 word) {
   pcibios_WriteConfig_Word(pcidev->pcibios_dev, addr, word);
   return PCIBIOS_SUCCESSFUL;
 }
 
-static inline int pci_read_config_byte (struct pci_dev *pcidev, uint16_t addr, unsigned char *wordp) {
+static inline int pci_read_config_byte (struct pci_dev *pcidev, u16 addr, u8 *wordp) {
   *wordp = pcibios_ReadConfig_Byte(pcidev->pcibios_dev, addr);
   return PCIBIOS_SUCCESSFUL;
 }
 
-static inline int pci_write_config_byte (struct pci_dev *pcidev, uint16_t addr, unsigned char word) {
+static inline int pci_write_config_byte (struct pci_dev *pcidev, u16 addr, u8 word) {
   pcibios_WriteConfig_Byte(pcidev->pcibios_dev, addr, word);
   return PCIBIOS_SUCCESSFUL;
 }

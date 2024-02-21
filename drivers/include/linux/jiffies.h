@@ -343,7 +343,7 @@ static inline u64 jiffies_to_nsecs(const unsigned long j)
 
 extern u64 jiffies64_to_nsecs(u64 j);
 
-extern unsigned long __msecs_to_jiffies(const unsigned int m);
+//extern unsigned long __msecs_to_jiffies(const unsigned int m);
 #if HZ <= MSEC_PER_SEC && !(MSEC_PER_SEC % HZ)
 /*
  * HZ is equal to or smaller than 1000, and 1000 is a nice round
@@ -380,6 +380,16 @@ static inline unsigned long _msecs_to_jiffies(const unsigned int m)
 	return (MSEC_TO_HZ_MUL32 * m + MSEC_TO_HZ_ADJ32) >> MSEC_TO_HZ_SHR32;
 }
 #endif
+// __msecs_to_jiffies from kernel/time/time.c
+static inline unsigned long __msecs_to_jiffies(const unsigned int m)
+{
+        /*
+         * Negative value, means infinite timeout:
+         */
+        if ((int)m < 0)
+                return MAX_JIFFY_OFFSET;
+        return _msecs_to_jiffies(m);
+}
 /**
  * msecs_to_jiffies: - convert milliseconds to jiffies
  * @m:	time in milliseconds

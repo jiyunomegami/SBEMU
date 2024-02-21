@@ -226,6 +226,9 @@ static int ct_xfitimer_reprogram(struct ct_timer *atimer, int can_update)
 
 	if (min_intr < MIN_TICKS)
 		min_intr = MIN_TICKS;
+        // Prevent artifacts in Doom
+        min_intr /= 5;
+        if (min_intr <= 0) min_intr = 1;
 	ct_xfitimer_irq_rearm(atimer, min_intr);
 	atimer->reprogram = 0; /* clear flag */
 	return updates;
