@@ -121,6 +121,7 @@ SBEMU_SRC := sbemu/dbopl.cpp \
 	     qemm.c \
 	     utility.c \
 	     hdpmipt.c \
+		 irqguard.c \
 
 PCI_SRC = drivers/pci/kernel.c \
           drivers/pci/bitmap.c \
